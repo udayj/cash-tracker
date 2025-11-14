@@ -27,9 +27,7 @@ pub struct Config {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct TelegramConfig {
-    pub price_alert_subscribers: Vec<i64>,
     pub error_channel_id: i64,
-    pub admin_telegram_id: String,
 }
 
 #[derive(Clone)]

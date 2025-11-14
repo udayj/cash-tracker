@@ -65,7 +65,7 @@ impl TelegramService {
         let chat_id = msg.chat.id;
         if let Some(request) = msg.text() {
             let response = request_fulfilment.fulfil_request(request).await.unwrap();
-            bot.send_message(chat_id, response);
+            let _ = bot.send_message(chat_id, response);
         }
         /*let chat_id = msg.chat.id;
         let telegram_id = chat_id.0.to_string();
