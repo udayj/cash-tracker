@@ -189,16 +189,21 @@ impl DatabaseService {
             .await
     }
 
-    // Get balance (sum of all cash transactions)
+    // Get balance (cash added - expenses)
     pub async fn get_balance(&self, user_id: i64) -> Result<i64, DatabaseError> {
         let stmt = self
             .conn
-            .prepare("SELECT COALESCE(SUM(amount), 0) FROM cash_transactions WHERE user_id = ?")
+            .prepare(
+                "SELECT
+                    (SELECT COALESCE(SUM(amount), 0) FROM cash_transactions WHERE user_id = ?) -
+                    (SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE user_id = ?)
+                 AS balance"
+            )
             .await
             .map_err(|e| DatabaseError::QueryError(e.to_string()))?;
 
         let mut rows = stmt
-            .query(params![user_id])
+            .query(params![user_id, user_id])
             .await
             .map_err(|e| DatabaseError::QueryError(e.to_string()))?;
 
