@@ -1,12 +1,10 @@
-use crate::database::DatabaseService;
 use crate::configuration::Context;
 use crate::core::RetryableClient;
+use serde::Deserialize;
+use serde_json::{Value, json};
 use std::env;
 use std::fs;
-use std::sync::Arc;
 use thiserror::Error;
-use serde_json::{json, Value};
-use serde::Deserialize;
 
 #[derive(Error, Debug)]
 pub enum LLMError {
@@ -20,7 +18,7 @@ pub enum LLMError {
     APICallError(String),
 
     #[error("Failed to parse LLM response: {0}")]
-    ResponseParseError(String)
+    ResponseParseError(String),
 }
 
 #[derive(Debug, Deserialize)]
@@ -166,17 +164,12 @@ pub struct LLMOrchestrator {
     api_key: String,
     client: RetryableClient,
     system_prompt: String,
-    database: Arc<DatabaseService>
 }
 
 impl LLMOrchestrator {
-    pub async fn new(context: &Context) -> Result<Self, LLMError> {
-        // Extract database from context
-        let database = context.database.clone();
-
+    pub async fn new(_context: &Context) -> Result<Self, LLMError> {
         // Read API key from environment
-        let api_key = env::var("GROQ_API_KEY")
-            .map_err(|_| LLMError::MissingApiKey)?;
+        let api_key = env::var("GROQ_API_KEY").map_err(|_| LLMError::MissingApiKey)?;
 
         // Initialize RetryableClient
         let client = RetryableClient::new();
@@ -189,14 +182,10 @@ impl LLMOrchestrator {
             api_key,
             client,
             system_prompt,
-            database,
         })
     }
 
-    pub async fn try_parse(
-        &self,
-        request: &str
-    ) -> Result<LLMResponse, LLMError> {
+    pub async fn try_parse(&self, request: &str) -> Result<LLMResponse, LLMError> {
         let model_name = "openai/gpt-oss-20b";
         let tools = get_tools();
 
@@ -228,7 +217,9 @@ impl LLMOrchestrator {
             .await
             .map_err(|e| LLMError::APICallError(e.to_string()))?;
 
-        let body: Value = response.json().await
+        let body: Value = response
+            .json()
+            .await
             .map_err(|e| LLMError::ResponseParseError(e.to_string()))?;
         println!("{}", serde_json::to_string_pretty(&body).unwrap());
         let message = body["choices"][0]["message"].clone();
@@ -243,10 +234,6 @@ impl LLMOrchestrator {
             .unwrap_or_default();
 
         println!("tool calls:{:#?}", tool_calls);
-        Ok(LLMResponse {
-            tool_calls,
-        })
+        Ok(LLMResponse { tool_calls })
     }
-
-    
 }

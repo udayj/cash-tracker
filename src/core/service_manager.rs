@@ -1,9 +1,9 @@
-use tokio::sync::mpsc;
-use tokio::task::JoinSet;
-use std::sync::Arc;
-use tokio::sync::Mutex;
 use super::Error;
 use super::service::{Service, ServiceWithReceiver};
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use tokio::sync::mpsc;
+use tokio::task::JoinSet;
 use tracing::error;
 
 pub struct ServiceManager<C> {
@@ -27,7 +27,7 @@ where
         self.services.spawn(async move {
             loop {
                 let service = T::new(context.clone(), error_channel.clone()).await;
-                if let Err(_) = service.run().await {
+                if service.run().await.is_err() {
                     continue;
                 }
             }
