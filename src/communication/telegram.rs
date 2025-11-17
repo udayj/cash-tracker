@@ -71,19 +71,30 @@ impl TelegramService {
                 user_message_id: msg.id.0 as i64,
             };
 
-            let response = request_fulfilment.fulfil_request(request, &ctx).await.unwrap();
-            let _ = bot.send_message(chat_id, response);
+            match request_fulfilment.fulfil_request(request, &ctx).await {
+                Ok(result) => {
+                    // Send the response message
+                    match bot.send_message(chat_id, result.response).await {
+                        Ok(sent_msg) => {
+                            // If there's a finalize action, execute it with the bot message ID
+                            if let Some(finalize_action) = result.finalize {
+                                let bot_msg_id = sent_msg.id.0 as i64;
+                                if let Err(e) = request_fulfilment.finalize(finalize_action, bot_msg_id).await {
+                                    let _ = error_channel.send(format!("Finalization error: {}", e)).await;
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            let _ = error_channel.send(format!("Failed to send message: {}", e)).await;
+                        }
+                    }
+                }
+                Err(e) => {
+                    let _ = error_channel.send(format!("Request fulfilment error: {}", e)).await;
+                    let _ = bot.send_message(chat_id, "Sorry, something went wrong processing your request.").await;
+                }
+            }
         }
-        /*let chat_id = msg.chat.id;
-        let telegram_id = chat_id.0.to_string();
-        println!("chat id:{}", chat_id);
-        println!("telegram_id:{}", telegram_id);
-        println!("message id:{}", msg.id);
-        if let Some(message) = msg.reply_to_message() {
-            println!("earlier message id:{}", message.id);
-            println!("chat id:{}", message.chat.id);
-            println!("telegram_id:{}", message.chat.id.0.to_string());
-        }*/
-        return Ok(());
+        Ok(())
     }
 }

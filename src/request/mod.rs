@@ -17,6 +17,26 @@ pub enum RequestError {
 
     #[error("Tool Execution Error: {0}")]
     ToolError(#[from] crate::request::tools::ToolError),
+
+    #[error("Database Error: {0}")]
+    DatabaseError(String),
+}
+
+#[derive(Debug, Clone)]
+pub enum ActionType {
+    Expense,
+    CashTransaction,
+}
+
+#[derive(Debug, Clone)]
+pub struct FinalizeAction {
+    pub record_id: i64,
+    pub action_type: ActionType,
+}
+
+pub struct FulfilmentResult {
+    pub response: String,
+    pub finalize: Option<FinalizeAction>,
 }
 
 pub struct RequestFulfilment {
@@ -37,25 +57,60 @@ impl RequestFulfilment {
         })
     }
 
-    pub async fn fulfil_request(&self, request: &str, ctx: &SessionContext) -> Result<String, RequestError> {
+    pub async fn fulfil_request(&self, request: &str, ctx: &SessionContext) -> Result<FulfilmentResult, RequestError> {
         // Get LLM response with tool calls
         let llm_response = self.llm_service.try_parse(request).await?;
 
         if llm_response.tool_calls.is_empty() {
-            return Ok("No action taken".to_string());
+            return Ok(FulfilmentResult {
+                response: "No action taken".to_string(),
+                finalize: None,
+            });
         }
 
         // Execute tool and generate response based on tool type
         let tool_executor = ToolExecutor::new(self.database.clone());
         let tool_call = &llm_response.tool_calls[0]; // Use first tool call
 
-        let _record_id = tool_executor
+        let record_id = tool_executor
             .execute_tool(&tool_call.function.name, &tool_call.function.arguments, ctx)
             .await?;
 
         // Generate response message based on tool
         let response = self.format_response(&tool_call.function.name, &tool_call.function.arguments)?;
-        Ok(response)
+
+        // Determine if finalization is needed
+        let finalize = match tool_call.function.name.as_str() {
+            "add_cash" => record_id.map(|id| FinalizeAction {
+                record_id: id,
+                action_type: ActionType::CashTransaction,
+            }),
+            "add_expense" => record_id.map(|id| FinalizeAction {
+                record_id: id,
+                action_type: ActionType::Expense,
+            }),
+            _ => None,
+        };
+
+        Ok(FulfilmentResult { response, finalize })
+    }
+
+    pub async fn finalize(&self, action: FinalizeAction, bot_message_id: i64) -> Result<(), RequestError> {
+        match action.action_type {
+            ActionType::Expense => {
+                self.database
+                    .update_expense_bot_message(action.record_id, bot_message_id)
+                    .await
+                    .map_err(|e| RequestError::DatabaseError(e.to_string()))?;
+            }
+            ActionType::CashTransaction => {
+                self.database
+                    .update_cash_bot_message(action.record_id, bot_message_id)
+                    .await
+                    .map_err(|e| RequestError::DatabaseError(e.to_string()))?;
+            }
+        }
+        Ok(())
     }
 
     fn format_response(&self, tool_name: &str, arguments: &str) -> Result<String, RequestError> {
