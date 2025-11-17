@@ -30,7 +30,8 @@ impl Service for TelegramService {
         let bot = Bot::new(bot_token);
         let request_fulfilment = RequestFulfilment::new(&context)
             .await
-            .map_err(|_| TelegramServiceError::InitializationError).unwrap();
+            .map_err(|_| TelegramServiceError::InitializationError)
+            .unwrap();
         Self {
             bot,
             request_fulfilment,
@@ -45,7 +46,12 @@ impl Service for TelegramService {
             let error_channel = Arc::clone(&error_channel);
             let request_fulfilment = Arc::clone(&request_fulfilment);
             async move {
-                tokio::spawn(Self::handle_message(bot, msg, request_fulfilment, error_channel));
+                tokio::spawn(Self::handle_message(
+                    bot,
+                    msg,
+                    request_fulfilment,
+                    error_channel,
+                ));
                 respond(())
             }
         })
@@ -61,7 +67,6 @@ impl TelegramService {
         request_fulfilment: Arc<RequestFulfilment>,
         error_channel: Arc<mpsc::Sender<String>>,
     ) -> ResponseResult<()> {
-
         let chat_id = msg.chat.id;
         if let Some(request) = msg.text() {
             let response = request_fulfilment.fulfil_request(request).await.unwrap();
@@ -77,6 +82,6 @@ impl TelegramService {
             println!("chat id:{}", message.chat.id);
             println!("telegram_id:{}", message.chat.id.0.to_string());
         }*/
-        return Ok(());
+        Ok(())
     }
 }
