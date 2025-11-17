@@ -18,8 +18,8 @@ pub struct RetryableClient {
     max_retries: u32,
 }
 
-impl RetryableClient {
-    pub fn new() -> Self {
+impl Default for RetryableClient {
+    fn default() -> Self {
         Self {
             client: Client::builder()
                 .timeout(Duration::from_secs(45))
@@ -27,6 +27,11 @@ impl RetryableClient {
                 .unwrap(),
             max_retries: 3,
         }
+    }
+}
+impl RetryableClient {
+    pub fn new() -> Self {
+        RetryableClient::default()
     }
 
     pub fn with_retries(client: Client, max_retries: u32) -> Self {
@@ -49,7 +54,7 @@ impl RetryableClient {
                 None => {
                     return Err(RetryError::NonRetryable(
                         "Request body not cloneable".to_string(),
-                    ))
+                    ));
                 }
             };
 

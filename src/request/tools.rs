@@ -1,4 +1,4 @@
-use crate::database::DatabaseService;
+use crate::{database::DatabaseService, request::SessionContext};
 use serde::Deserialize;
 use std::sync::Arc;
 use thiserror::Error;
@@ -16,13 +16,13 @@ pub enum ToolError {
 }
 
 // Tool argument structs
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct AddCashArgs {
     pub amount: f64,
     pub date: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct AddExpenseArgs {
     pub amount: f64,
     pub description: String,
@@ -30,7 +30,7 @@ pub struct AddExpenseArgs {
     pub date: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct ModifyExpenseArgs {
     pub expense_id: i64,
     pub field: String,
@@ -68,89 +68,153 @@ impl ToolExecutor {
         &self,
         tool_name: &str,
         arguments: &str,
-    ) -> Result<String, ToolError> {
+        ctx: &SessionContext,
+    ) -> Result<(Option<i64>, String), ToolError> {
         match tool_name {
             "add_cash" => {
                 let args: AddCashArgs = serde_json::from_str(arguments)
                     .map_err(|e| ToolError::ArgumentParseError(e.to_string()))?;
-                self.add_cash(args).await
+                Ok((
+                    Some(self.add_cash(&args, ctx).await?),
+                    format!("✅ Added ₹{} to cash balance", args.amount),
+                ))
             }
             "add_expense" => {
                 let args: AddExpenseArgs = serde_json::from_str(arguments)
                     .map_err(|e| ToolError::ArgumentParseError(e.to_string()))?;
-                self.add_expense(args).await
+                Ok((
+                    Some(self.add_expense(&args, ctx).await?),
+                    format!("✅ Added ₹{} under {}", args.amount, args.category),
+                ))
             }
             "modify_expense" => {
                 let args: ModifyExpenseArgs = serde_json::from_str(arguments)
                     .map_err(|e| ToolError::ArgumentParseError(e.to_string()))?;
-                self.modify_expense(args).await
+                self.modify_expense(args).await?;
+                Ok((None, "✅ Expense modified successfully".to_string()))
             }
             "delete_expense" => {
                 let args: DeleteExpenseArgs = serde_json::from_str(arguments)
                     .map_err(|e| ToolError::ArgumentParseError(e.to_string()))?;
-                self.delete_expense(args).await
+                self.delete_expense(args).await?;
+                Ok((None, "✅ Expense deleted successfully".to_string()))
             }
-            "get_balance" => self.get_balance().await,
+            "get_balance" => Ok((None, self.get_balance(ctx).await?)),
             "get_expense_breakdown" => {
                 let args: GetExpenseBreakdownArgs = serde_json::from_str(arguments)
                     .map_err(|e| ToolError::ArgumentParseError(e.to_string()))?;
-                self.get_expense_breakdown(args).await
+                Ok((None, self.get_expense_breakdown(args, ctx).await?))
             }
             "get_category_expenses" => {
                 let args: GetCategoryExpensesArgs = serde_json::from_str(arguments)
                     .map_err(|e| ToolError::ArgumentParseError(e.to_string()))?;
-                self.get_category_expenses(args).await
+                Ok((None, self.get_category_expenses(args, ctx).await?))
             }
-            "get_categories" => self.get_categories().await,
+            "get_categories" => Ok((None, self.get_categories(ctx).await?)),
             _ => Err(ToolError::UnknownTool(tool_name.to_string())),
         }
     }
 
-    async fn add_cash(&self, args: AddCashArgs) -> Result<String, ToolError> {
-        // TODO: Implement database call
-        // self.database.add_cash(args.amount, &args.date).await?;
-        todo!("Implement add_cash database method")
+    async fn add_cash(&self, args: &AddCashArgs, ctx: &SessionContext) -> Result<i64, ToolError> {
+        self.database
+            .add_cash_transaction(args, ctx)
+            .await
+            .map_err(|e| ToolError::DatabaseError(e.to_string()))
     }
 
-    async fn add_expense(&self, args: AddExpenseArgs) -> Result<String, ToolError> {
-        // TODO: Implement database call
-        // let id = self.database.add_expense(args.amount, &args.description, &args.category, &args.date).await?;
-        todo!("Implement add_expense database method")
+    async fn add_expense(
+        &self,
+        args: &AddExpenseArgs,
+        ctx: &SessionContext,
+    ) -> Result<i64, ToolError> {
+        self.database
+            .add_expense(args, ctx)
+            .await
+            .map_err(|e| ToolError::DatabaseError(e.to_string()))
     }
 
-    async fn modify_expense(&self, args: ModifyExpenseArgs) -> Result<String, ToolError> {
-        // TODO: Implement database call
-        // self.database.modify_expense(args.expense_id, &args.field, &args.new_value).await?;
-        todo!("Implement modify_expense database method")
+    async fn modify_expense(&self, args: ModifyExpenseArgs) -> Result<(), ToolError> {
+        self.database
+            .modify_expense(args)
+            .await
+            .map_err(|e| ToolError::DatabaseError(e.to_string()))?;
+
+        Ok(())
     }
 
-    async fn delete_expense(&self, args: DeleteExpenseArgs) -> Result<String, ToolError> {
-        // TODO: Implement database call
-        // self.database.delete_expense(args.expense_id).await?;
-        todo!("Implement delete_expense database method")
+    async fn delete_expense(&self, args: DeleteExpenseArgs) -> Result<(), ToolError> {
+        self.database
+            .delete_expense(args.expense_id)
+            .await
+            .map_err(|e| ToolError::DatabaseError(e.to_string()))?;
+
+        Ok(())
     }
 
-    async fn get_balance(&self) -> Result<String, ToolError> {
-        // TODO: Implement database call
-        // let balance = self.database.get_balance().await?;
-        todo!("Implement get_balance database method")
+    async fn get_balance(&self, ctx: &SessionContext) -> Result<String, ToolError> {
+        let balance = self
+            .database
+            .get_balance(ctx.user_id)
+            .await
+            .map_err(|e| ToolError::DatabaseError(e.to_string()))?;
+        Ok(format!("Cash balance: Rs.{}", balance))
     }
 
-    async fn get_expense_breakdown(&self, args: GetExpenseBreakdownArgs) -> Result<String, ToolError> {
-        // TODO: Implement database call
-        // let breakdown = self.database.get_expense_breakdown(&args.start_date, &args.end_date).await?;
-        todo!("Implement get_expense_breakdown database method")
+    async fn get_expense_breakdown(
+        &self,
+        args: GetExpenseBreakdownArgs,
+        ctx: &SessionContext,
+    ) -> Result<String, ToolError> {
+        let breakdown = self
+            .database
+            .get_expense_breakdown(ctx.user_id, &args.start_date, &args.end_date)
+            .await
+            .map_err(|e| ToolError::DatabaseError(e.to_string()))?;
+        let mut summary: String = "".to_string();
+        for category_expense in breakdown {
+            summary.push_str(
+                format!(
+                    "{} - Rs.{}\n",
+                    category_expense.category, category_expense.total
+                )
+                .as_str(),
+            );
+        }
+        Ok(summary)
     }
 
-    async fn get_category_expenses(&self, args: GetCategoryExpensesArgs) -> Result<String, ToolError> {
-        // TODO: Implement database call
-        // let expenses = self.database.get_category_expenses(&args.category, &args.start_date, &args.end_date).await?;
-        todo!("Implement get_category_expenses database method")
+    async fn get_category_expenses(
+        &self,
+        args: GetCategoryExpensesArgs,
+        ctx: &SessionContext,
+    ) -> Result<String, ToolError> {
+        let expenses = self
+            .database
+            .get_category_expenses(
+                ctx.user_id,
+                &args.category,
+                &args.start_date,
+                &args.end_date,
+            )
+            .await
+            .map_err(|e| ToolError::DatabaseError(e.to_string()))?;
+
+        let mut summary: String = "".to_string();
+        for expense in expenses {
+            summary.push_str(&expense.description);
+            summary.push('\n');
+        }
+        Ok(summary)
     }
 
-    async fn get_categories(&self) -> Result<String, ToolError> {
-        // TODO: Implement database call
-        // let categories = self.database.get_categories().await?;
-        todo!("Implement get_categories database method")
+    async fn get_categories(&self, ctx: &SessionContext) -> Result<String, ToolError> {
+        let categories = self
+            .database
+            .get_categories(ctx.user_id)
+            .await
+            .map_err(|e| ToolError::DatabaseError(e.to_string()))?;
+
+        // Categories will be formatted in request/mod.rs format_response
+        Ok(categories.join("\n"))
     }
 }
