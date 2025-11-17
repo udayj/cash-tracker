@@ -46,8 +46,10 @@ pub struct AddExpenseArgs {
 #[derive(Debug, Deserialize)]
 pub struct ModifyExpenseArgs {
     pub expense_id: i64,
-    pub field: String,
-    pub new_value: String,
+    pub amount: Option<f64>,
+    pub description: Option<String>,
+    pub category: Option<String>,
+    pub date: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -159,8 +161,17 @@ impl ToolExecutor {
     }
 
     async fn modify_expense(&self, args: ModifyExpenseArgs) -> Result<(), ToolError> {
+        // Convert amount from rupees to paisa if present
+        let amount_paisa = args.amount.map(|amt| (amt * 100.0) as i64);
+
         self.database
-            .modify_expense(args.expense_id, &args.field, &args.new_value)
+            .modify_expense(
+                args.expense_id,
+                amount_paisa,
+                args.description.as_deref(),
+                args.category.as_deref(),
+                args.date.as_deref(),
+            )
             .await
             .map_err(|e| ToolError::DatabaseError(e.to_string()))?;
 
