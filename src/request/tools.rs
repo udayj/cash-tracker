@@ -1,12 +1,19 @@
-use crate::database::DatabaseService;
+use crate::database::{DatabaseService, Expense, CashTransaction};
 use serde::Deserialize;
 use std::sync::Arc;
 use thiserror::Error;
 
 #[derive(Debug, Clone)]
+pub enum RecordContext {
+    Expense(Expense),
+    CashTransaction(CashTransaction),
+}
+
+#[derive(Debug, Clone)]
 pub struct SessionContext {
     pub user_id: i64,
     pub user_message_id: i64,
+    pub replied_record: Option<RecordContext>,
 }
 
 #[derive(Error, Debug)]

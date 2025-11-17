@@ -2,7 +2,7 @@ use crate::{database::DatabaseService, request::llm::LLMOrchestrator};
 use std::sync::Arc;
 use thiserror::Error;
 use crate::configuration::Context;
-use crate::request::tools::{ToolExecutor, SessionContext};
+use crate::request::tools::{ToolExecutor, SessionContext, RecordContext};
 
 pub mod llm;
 pub mod tools;
@@ -58,8 +58,16 @@ impl RequestFulfilment {
     }
 
     pub async fn fulfil_request(&self, request: &str, ctx: &SessionContext) -> Result<FulfilmentResult, RequestError> {
+        // Format request with context if replying to a record
+        let full_request = if let Some(ref record_ctx) = ctx.replied_record {
+            let context_str = Self::format_record_context(record_ctx);
+            format!("{}\n\nUser request: {}", context_str, request)
+        } else {
+            request.to_string()
+        };
+
         // Get LLM response with tool calls
-        let llm_response = self.llm_service.try_parse(request).await?;
+        let llm_response = self.llm_service.try_parse(&full_request).await?;
 
         if llm_response.tool_calls.is_empty() {
             return Ok(FulfilmentResult {
@@ -93,6 +101,33 @@ impl RequestFulfilment {
         };
 
         Ok(FulfilmentResult { response, finalize })
+    }
+
+    fn format_record_context(record: &RecordContext) -> String {
+        match record {
+            RecordContext::Expense(expense) => {
+                let amount_rupees = expense.amount as f64 / 100.0;
+                format!(
+                    "CONTEXT: The user is replying about an existing expense:\n\
+                     - Expense ID: {}\n\
+                     - Amount: ₹{:.2}\n\
+                     - Description: {}\n\
+                     - Category: {}\n\
+                     - Date: {}",
+                    expense.id, amount_rupees, expense.description, expense.category, expense.expense_date
+                )
+            }
+            RecordContext::CashTransaction(cash) => {
+                let amount_rupees = cash.amount as f64 / 100.0;
+                format!(
+                    "CONTEXT: The user is replying about an existing cash transaction:\n\
+                     - Transaction ID: {}\n\
+                     - Amount: ₹{:.2}\n\
+                     - Date: {}",
+                    cash.id, amount_rupees, cash.transaction_date
+                )
+            }
+        }
     }
 
     pub async fn finalize(&self, action: FinalizeAction, bot_message_id: i64) -> Result<(), RequestError> {

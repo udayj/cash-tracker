@@ -2,7 +2,8 @@ use crate::configuration::Context;
 use crate::core::Error;
 use crate::core::Service;
 use crate::request::RequestFulfilment;
-use crate::request::tools::SessionContext;
+use crate::request::tools::{SessionContext, RecordContext};
+use crate::database::DatabaseService;
 use async_trait::async_trait;
 use std::env;
 use std::sync::Arc;
@@ -19,6 +20,7 @@ pub enum TelegramServiceError {
 pub struct TelegramService {
     bot: Bot,
     request_fulfilment: RequestFulfilment,
+    database: Arc<DatabaseService>,
     error_channel: mpsc::Sender<String>,
 }
 
@@ -29,12 +31,14 @@ impl Service for TelegramService {
     async fn new(context: Context, error_channel: mpsc::Sender<String>) -> Self {
         let bot_token = env::var("TELEGRAM_BOT_TOKEN").expect("TELEGRAM_BOT_TOKEN not found");
         let bot = Bot::new(bot_token);
+        let database = context.database.clone();
         let request_fulfilment = RequestFulfilment::new(&context)
             .await
             .map_err(|_| TelegramServiceError::InitializationError).unwrap();
         Self {
             bot,
             request_fulfilment,
+            database,
             error_channel,
         }
     }
@@ -42,11 +46,13 @@ impl Service for TelegramService {
     async fn run(self) -> Result<(), Error> {
         let error_channel = Arc::new(self.error_channel);
         let request_fulfilment = Arc::new(self.request_fulfilment);
+        let database = self.database;
         teloxide::repl(self.bot, move |bot: Bot, msg: Message| {
             let error_channel = Arc::clone(&error_channel);
             let request_fulfilment = Arc::clone(&request_fulfilment);
+            let database = Arc::clone(&database);
             async move {
-                tokio::spawn(Self::handle_message(bot, msg, request_fulfilment, error_channel));
+                tokio::spawn(Self::handle_message(bot, msg, request_fulfilment, database, error_channel));
                 respond(())
             }
         })
@@ -60,15 +66,46 @@ impl TelegramService {
         bot: Bot,
         msg: Message,
         request_fulfilment: Arc<RequestFulfilment>,
+        database: Arc<DatabaseService>,
         error_channel: Arc<mpsc::Sender<String>>,
     ) -> ResponseResult<()> {
 
         let chat_id = msg.chat.id;
+        let user_id = chat_id.0;
+
         if let Some(request) = msg.text() {
+            // Check if this is a reply and look up the record
+            let replied_record = if let Some(reply_to) = msg.reply_to_message() {
+                let replied_msg_id = reply_to.id.0 as i64;
+
+                // Try to find expense first
+                match database.find_expense_by_message(user_id, replied_msg_id).await {
+                    Ok(Some(expense)) => Some(RecordContext::Expense(expense)),
+                    Ok(None) => {
+                        // Try to find cash transaction
+                        match database.find_cash_by_message(user_id, replied_msg_id).await {
+                            Ok(Some(cash)) => Some(RecordContext::CashTransaction(cash)),
+                            Ok(None) => None,
+                            Err(e) => {
+                                let _ = error_channel.send(format!("Database lookup error: {}", e)).await;
+                                None
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        let _ = error_channel.send(format!("Database lookup error: {}", e)).await;
+                        None
+                    }
+                }
+            } else {
+                None
+            };
+
             // Create session context from message
             let ctx = SessionContext {
-                user_id: chat_id.0,
+                user_id,
                 user_message_id: msg.id.0 as i64,
+                replied_record,
             };
 
             match request_fulfilment.fulfil_request(request, &ctx).await {
