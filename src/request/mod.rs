@@ -2,7 +2,7 @@ use crate::{database::DatabaseService, request::llm::LLMOrchestrator};
 use std::sync::Arc;
 use thiserror::Error;
 use crate::configuration::Context;
-use crate::request::tools::ToolExecutor;
+use crate::request::tools::{ToolExecutor, SessionContext};
 
 pub mod llm;
 pub mod tools;
@@ -37,7 +37,7 @@ impl RequestFulfilment {
         })
     }
 
-    pub async fn fulfil_request(&self, request: &str) -> Result<String, RequestError> {
+    pub async fn fulfil_request(&self, request: &str, ctx: &SessionContext) -> Result<String, RequestError> {
         // Get LLM response with tool calls
         let llm_response = self.llm_service.try_parse(request).await?;
 
@@ -49,8 +49,8 @@ impl RequestFulfilment {
         let tool_executor = ToolExecutor::new(self.database.clone());
         let tool_call = &llm_response.tool_calls[0]; // Use first tool call
 
-        tool_executor
-            .execute_tool(&tool_call.function.name, &tool_call.function.arguments)
+        let _record_id = tool_executor
+            .execute_tool(&tool_call.function.name, &tool_call.function.arguments, ctx)
             .await?;
 
         // Generate response message based on tool

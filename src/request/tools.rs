@@ -3,6 +3,12 @@ use serde::Deserialize;
 use std::sync::Arc;
 use thiserror::Error;
 
+#[derive(Debug, Clone)]
+pub struct SessionContext {
+    pub user_id: i64,
+    pub user_message_id: i64,
+}
+
 #[derive(Error, Debug)]
 pub enum ToolError {
     #[error("Unknown tool: {0}")]
@@ -68,89 +74,142 @@ impl ToolExecutor {
         &self,
         tool_name: &str,
         arguments: &str,
-    ) -> Result<String, ToolError> {
+        ctx: &SessionContext,
+    ) -> Result<Option<i64>, ToolError> {
         match tool_name {
             "add_cash" => {
                 let args: AddCashArgs = serde_json::from_str(arguments)
                     .map_err(|e| ToolError::ArgumentParseError(e.to_string()))?;
-                self.add_cash(args).await
+                self.add_cash(args, ctx).await.map(Some)
             }
             "add_expense" => {
                 let args: AddExpenseArgs = serde_json::from_str(arguments)
                     .map_err(|e| ToolError::ArgumentParseError(e.to_string()))?;
-                self.add_expense(args).await
+                self.add_expense(args, ctx).await.map(Some)
             }
             "modify_expense" => {
                 let args: ModifyExpenseArgs = serde_json::from_str(arguments)
                     .map_err(|e| ToolError::ArgumentParseError(e.to_string()))?;
-                self.modify_expense(args).await
+                self.modify_expense(args).await.map(|_| None)
             }
             "delete_expense" => {
                 let args: DeleteExpenseArgs = serde_json::from_str(arguments)
                     .map_err(|e| ToolError::ArgumentParseError(e.to_string()))?;
-                self.delete_expense(args).await
+                self.delete_expense(args).await.map(|_| None)
             }
-            "get_balance" => self.get_balance().await,
+            "get_balance" => self.get_balance(ctx).await.map(|_| None),
             "get_expense_breakdown" => {
                 let args: GetExpenseBreakdownArgs = serde_json::from_str(arguments)
                     .map_err(|e| ToolError::ArgumentParseError(e.to_string()))?;
-                self.get_expense_breakdown(args).await
+                self.get_expense_breakdown(args, ctx).await.map(|_| None)
             }
             "get_category_expenses" => {
                 let args: GetCategoryExpensesArgs = serde_json::from_str(arguments)
                     .map_err(|e| ToolError::ArgumentParseError(e.to_string()))?;
-                self.get_category_expenses(args).await
+                self.get_category_expenses(args, ctx).await.map(|_| None)
             }
-            "get_categories" => self.get_categories().await,
+            "get_categories" => self.get_categories(ctx).await.map(|_| None),
             _ => Err(ToolError::UnknownTool(tool_name.to_string())),
         }
     }
 
-    async fn add_cash(&self, args: AddCashArgs) -> Result<String, ToolError> {
-        // TODO: Implement database call
-        // self.database.add_cash(args.amount, &args.date).await?;
-        todo!("Implement add_cash database method")
+    async fn add_cash(&self, args: AddCashArgs, ctx: &SessionContext) -> Result<i64, ToolError> {
+        // Convert rupees to paisa (multiply by 100)
+        let amount_paisa = (args.amount * 100.0) as i64;
+
+        let id = self
+            .database
+            .add_cash_transaction(
+                ctx.user_id,
+                amount_paisa,
+                &args.date,
+                ctx.user_message_id,
+            )
+            .await
+            .map_err(|e| ToolError::DatabaseError(e.to_string()))?;
+
+        Ok(id)
     }
 
-    async fn add_expense(&self, args: AddExpenseArgs) -> Result<String, ToolError> {
-        // TODO: Implement database call
-        // let id = self.database.add_expense(args.amount, &args.description, &args.category, &args.date).await?;
-        todo!("Implement add_expense database method")
+    async fn add_expense(&self, args: AddExpenseArgs, ctx: &SessionContext) -> Result<i64, ToolError> {
+        // Convert rupees to paisa (multiply by 100)
+        let amount_paisa = (args.amount * 100.0) as i64;
+
+        let id = self
+            .database
+            .add_expense(
+                ctx.user_id,
+                amount_paisa,
+                &args.description,
+                &args.category,
+                &args.date,
+                ctx.user_message_id,
+            )
+            .await
+            .map_err(|e| ToolError::DatabaseError(e.to_string()))?;
+
+        Ok(id)
     }
 
-    async fn modify_expense(&self, args: ModifyExpenseArgs) -> Result<String, ToolError> {
-        // TODO: Implement database call
-        // self.database.modify_expense(args.expense_id, &args.field, &args.new_value).await?;
-        todo!("Implement modify_expense database method")
+    async fn modify_expense(&self, args: ModifyExpenseArgs) -> Result<(), ToolError> {
+        self.database
+            .modify_expense(args.expense_id, &args.field, &args.new_value)
+            .await
+            .map_err(|e| ToolError::DatabaseError(e.to_string()))?;
+
+        Ok(())
     }
 
-    async fn delete_expense(&self, args: DeleteExpenseArgs) -> Result<String, ToolError> {
-        // TODO: Implement database call
-        // self.database.delete_expense(args.expense_id).await?;
-        todo!("Implement delete_expense database method")
+    async fn delete_expense(&self, args: DeleteExpenseArgs) -> Result<(), ToolError> {
+        self.database
+            .delete_expense(args.expense_id)
+            .await
+            .map_err(|e| ToolError::DatabaseError(e.to_string()))?;
+
+        Ok(())
     }
 
-    async fn get_balance(&self) -> Result<String, ToolError> {
-        // TODO: Implement database call
-        // let balance = self.database.get_balance().await?;
-        todo!("Implement get_balance database method")
+    async fn get_balance(&self, ctx: &SessionContext) -> Result<(), ToolError> {
+        let _balance = self
+            .database
+            .get_balance(ctx.user_id)
+            .await
+            .map_err(|e| ToolError::DatabaseError(e.to_string()))?;
+
+        // Balance will be formatted in request/mod.rs format_response
+        Ok(())
     }
 
-    async fn get_expense_breakdown(&self, args: GetExpenseBreakdownArgs) -> Result<String, ToolError> {
-        // TODO: Implement database call
-        // let breakdown = self.database.get_expense_breakdown(&args.start_date, &args.end_date).await?;
-        todo!("Implement get_expense_breakdown database method")
+    async fn get_expense_breakdown(&self, args: GetExpenseBreakdownArgs, ctx: &SessionContext) -> Result<(), ToolError> {
+        let _breakdown = self
+            .database
+            .get_expense_breakdown(ctx.user_id, &args.start_date, &args.end_date)
+            .await
+            .map_err(|e| ToolError::DatabaseError(e.to_string()))?;
+
+        // Breakdown will be formatted in request/mod.rs format_response
+        Ok(())
     }
 
-    async fn get_category_expenses(&self, args: GetCategoryExpensesArgs) -> Result<String, ToolError> {
-        // TODO: Implement database call
-        // let expenses = self.database.get_category_expenses(&args.category, &args.start_date, &args.end_date).await?;
-        todo!("Implement get_category_expenses database method")
+    async fn get_category_expenses(&self, args: GetCategoryExpensesArgs, ctx: &SessionContext) -> Result<(), ToolError> {
+        let _expenses = self
+            .database
+            .get_category_expenses(ctx.user_id, &args.category, &args.start_date, &args.end_date)
+            .await
+            .map_err(|e| ToolError::DatabaseError(e.to_string()))?;
+
+        // Expenses will be formatted in request/mod.rs format_response
+        Ok(())
     }
 
-    async fn get_categories(&self) -> Result<String, ToolError> {
-        // TODO: Implement database call
-        // let categories = self.database.get_categories().await?;
-        todo!("Implement get_categories database method")
+    async fn get_categories(&self, ctx: &SessionContext) -> Result<(), ToolError> {
+        let _categories = self
+            .database
+            .get_categories(ctx.user_id)
+            .await
+            .map_err(|e| ToolError::DatabaseError(e.to_string()))?;
+
+        // Categories will be formatted in request/mod.rs format_response
+        Ok(())
     }
 }

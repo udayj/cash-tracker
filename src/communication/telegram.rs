@@ -2,6 +2,7 @@ use crate::configuration::Context;
 use crate::core::Error;
 use crate::core::Service;
 use crate::request::RequestFulfilment;
+use crate::request::tools::SessionContext;
 use async_trait::async_trait;
 use std::env;
 use std::sync::Arc;
@@ -64,7 +65,13 @@ impl TelegramService {
 
         let chat_id = msg.chat.id;
         if let Some(request) = msg.text() {
-            let response = request_fulfilment.fulfil_request(request).await.unwrap();
+            // Create session context from message
+            let ctx = SessionContext {
+                user_id: chat_id.0,
+                user_message_id: msg.id.0 as i64,
+            };
+
+            let response = request_fulfilment.fulfil_request(request, &ctx).await.unwrap();
             let _ = bot.send_message(chat_id, response);
         }
         /*let chat_id = msg.chat.id;
