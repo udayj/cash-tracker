@@ -33,8 +33,10 @@ pub struct AddExpenseArgs {
 #[derive(Debug, Deserialize, Clone)]
 pub struct ModifyExpenseArgs {
     pub expense_id: i64,
-    pub field: String,
-    pub new_value: String,
+    pub amount: Option<i64>,
+    pub description: Option<String>,
+    pub category: Option<String>,
+    pub date: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

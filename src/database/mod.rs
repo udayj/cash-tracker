@@ -115,34 +115,39 @@ impl DatabaseService {
         .await
     }
 
-    // Modify expense field
+    // Modify expense fields
     pub async fn modify_expense(&self, args: ModifyExpenseArgs) -> Result<(), DatabaseError> {
-        // Validate field to prevent SQL injection
-        let sql = match args.field.as_str() {
-            "amount" => {
-                let amount: i64 = args
-                    .new_value
-                    .parse()
-                    .map_err(|_| DatabaseError::QueryError("Invalid amount".to_string()))?;
-                self.execute(
-                    "UPDATE expenses SET amount = ? WHERE id = ?",
-                    params![amount, args.expense_id],
-                )
-                .await?;
-                return Ok(());
-            }
-            "description" => "UPDATE expenses SET description = ? WHERE id = ?",
-            "category" => "UPDATE expenses SET category = ? WHERE id = ?",
-            "expense_date" => "UPDATE expenses SET expense_date = ? WHERE id = ?",
-            _ => {
-                return Err(DatabaseError::QueryError(format!(
-                    "Invalid field: {}",
-                    args.field
-                )));
-            }
-        };
+        let mut set_clauses = Vec::new();
+        let mut values: Vec<libsql::Value> = Vec::new();
 
-        self.execute(sql, params![args.new_value, args.expense_id])
+        if let Some(amt) = args.amount {
+            set_clauses.push("amount = ?");
+            values.push(amt.into());
+        }
+        if let Some(desc) = args.description {
+            set_clauses.push("description = ?");
+            values.push(desc.into());
+        }
+        if let Some(cat) = args.category {
+            set_clauses.push("category = ?");
+            values.push(cat.into());
+        }
+        if let Some(d) = args.date {
+            set_clauses.push("expense_date = ?");
+            values.push(d.into());
+        }
+
+        if set_clauses.is_empty() {
+            return Err(DatabaseError::QueryError("No fields to update".to_string()));
+        }
+
+        let sql = format!(
+            "UPDATE expenses SET {} WHERE id = ?",
+            set_clauses.join(", ")
+        );
+        values.push(args.expense_id.into());
+
+        self.execute(&sql, libsql::params::Params::Positional(values))
             .await
     }
 
