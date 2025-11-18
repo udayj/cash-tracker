@@ -4,6 +4,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use std::env;
 use std::fs;
+use std::sync::OnceLock;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -20,6 +21,8 @@ pub enum LLMError {
     #[error("Failed to parse LLM response: {0}")]
     ResponseParseError(String),
 }
+
+static TOOLS: OnceLock<Value> = OnceLock::new();
 
 #[derive(Debug, Deserialize)]
 pub struct ToolCall {
@@ -38,128 +41,10 @@ pub struct LLMResponse {
     pub tool_calls: Vec<ToolCall>,
 }
 
-fn get_tools() -> Value {
-    json!([
-        {
-            "type": "function",
-            "function": {
-                "name": "add_cash",
-                "description": "Add or subtract cash from the balance",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "amount": {"type": "number", "description": "Amount to add (positive) or subtract (negative)"},
-                        "date": {"type": "string", "description": "Date in dd/mm/yyyy format"}
-                    },
-                    "required": ["amount", "date"]
-                }
-            }
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "add_expense",
-                "description": "Add a new expense with description and category",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "amount": {"type": "number", "description": "Expense amount (positive number)"},
-                        "description": {"type": "string", "description": "Brief description of the expense"},
-                        "category": {"type": "string", "description": "Category name (e.g., Grocery, Food, Transport)"},
-                        "date": {"type": "string", "description": "Date in dd/mm/yyyy format"}
-                    },
-                    "required": ["amount", "description", "category", "date"]
-                }
-            }
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "modify_expense",
-                "description": "Modify one or more fields of an existing expense atomically. You can update amount, description, category, or date. When amount changes, update description accordingly (e.g., '10 fruits' to '20 fruits').",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "expense_id": {"type": "integer", "description": "ID of the expense to modify"},
-                        "amount": {"type": "integer", "description": "New amount in rupees (optional)"},
-                        "description": {"type": "string", "description": "New description (optional)"},
-                        "category": {"type": "string", "description": "New category (optional)"},
-                        "date": {"type": "string", "description": "New date in dd/mm/yyyy format (optional)"}
-                    },
-                    "required": ["expense_id"]
-                }
-            }
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "delete_expense",
-                "description": "Delete an expense by ID",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "expense_id": {"type": "integer", "description": "ID of the expense to delete"}
-                    },
-                    "required": ["expense_id"]
-                }
-            }
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "get_balance",
-                "description": "Get the current cash balance",
-                "parameters": {
-                    "type": "object",
-                    "properties": {},
-                    "required": []
-                }
-            }
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "get_expense_breakdown",
-                "description": "Get expense breakdown by category for a date range",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "start_date": {"type": "string", "description": "Start date in dd/mm/yyyy format"},
-                        "end_date": {"type": "string", "description": "End date in dd/mm/yyyy format"}
-                    },
-                    "required": ["start_date", "end_date"]
-                }
-            }
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "get_category_expenses",
-                "description": "Get all expenses for a specific category in a date range",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "category": {"type": "string", "description": "Category name"},
-                        "start_date": {"type": "string", "description": "Start date in dd/mm/yyyy format"},
-                        "end_date": {"type": "string", "description": "End date in dd/mm/yyyy format"}
-                    },
-                    "required": ["category", "start_date", "end_date"]
-                }
-            }
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "get_categories",
-                "description": "Get all expense categories with their totals",
-                "parameters": {
-                    "type": "object",
-                    "properties": {},
-                    "required": []
-                }
-            }
-        }
-    ])
+fn get_tools() -> &'static Value {
+    TOOLS.get_or_init(|| {
+        serde_json::from_str(include_str!("tools.json")).expect("Could not parse tools.json file")
+    })
 }
 
 pub struct LLMOrchestrator {

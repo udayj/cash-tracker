@@ -3,7 +3,7 @@ use crate::core::Error;
 use crate::core::Service;
 use crate::database::DatabaseService;
 use crate::request::RequestFulfilment;
-use crate::request::{RecordContext, SessionContext};
+use crate::request::types::{RecordContext, SessionContext};
 use async_trait::async_trait;
 use std::env;
 use std::sync::Arc;

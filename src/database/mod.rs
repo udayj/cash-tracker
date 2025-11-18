@@ -3,8 +3,8 @@ use std::env;
 use thiserror::Error;
 
 use crate::request::{
-    SessionContext,
-    tools::{AddCashArgs, AddExpenseArgs, ModifyExpenseArgs},
+    types::SessionContext,
+    types::args::{AddCashArgs, AddExpenseArgs, ModifyExpenseArgs},
 };
 mod types;
 

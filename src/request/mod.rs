@@ -3,9 +3,11 @@ use crate::request::tools::ToolExecutor;
 use crate::{database::DatabaseService, request::llm::LLMOrchestrator};
 use std::sync::Arc;
 use thiserror::Error;
-use crate::database::{Expense, CashTransaction};
-pub mod llm;
-pub mod tools;
+mod llm;
+mod tools;
+pub mod types;
+
+use types::*;
 
 #[derive(Error, Debug)]
 pub enum RequestError {
@@ -22,41 +24,10 @@ pub enum RequestError {
     DatabaseError(String),
 }
 
-#[derive(Debug, Clone)]
-pub enum ActionType {
-    Expense,
-    CashTransaction,
-}
-
-#[derive(Debug, Clone)]
-pub struct FinalizeAction {
-    pub record_id: i64,
-    pub action_type: ActionType,
-}
-
-pub struct FulfilmentResult {
-    pub response: String,
-    pub finalize: Option<FinalizeAction>,
-}
-
 pub struct RequestFulfilment {
     pub llm_service: LLMOrchestrator,
     pub database: Arc<DatabaseService>,
 }
-
-#[derive(Debug, Clone)]
-pub enum RecordContext {
-    Expense(Expense),
-    CashTransaction(CashTransaction),
-}
-
-#[derive(Debug, Clone)]
-pub struct SessionContext {
-    pub user_id: i64,
-    pub user_message_id: i64,
-    pub replied_record: Option<RecordContext>,
-}
-
 
 impl RequestFulfilment {
     pub async fn new(context: &Context) -> Result<Self, RequestError> {

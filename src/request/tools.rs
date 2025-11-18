@@ -1,5 +1,5 @@
+use super::types::args::*;
 use crate::{database::DatabaseService, request::SessionContext};
-use serde::Deserialize;
 use std::sync::Arc;
 use thiserror::Error;
 
@@ -13,48 +13,6 @@ pub enum ToolError {
 
     #[error("Database error: {0}")]
     DatabaseError(String),
-}
-
-// Tool argument structs
-#[derive(Debug, Deserialize, Clone)]
-pub struct AddCashArgs {
-    pub amount: f64,
-    pub date: String,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct AddExpenseArgs {
-    pub amount: f64,
-    pub description: String,
-    pub category: String,
-    pub date: String,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct ModifyExpenseArgs {
-    pub expense_id: i64,
-    pub amount: Option<i64>,
-    pub description: Option<String>,
-    pub category: Option<String>,
-    pub date: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct DeleteExpenseArgs {
-    pub expense_id: i64,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct GetExpenseBreakdownArgs {
-    pub start_date: String,
-    pub end_date: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct GetCategoryExpensesArgs {
-    pub category: String,
-    pub start_date: String,
-    pub end_date: String,
 }
 
 pub struct ToolExecutor {
