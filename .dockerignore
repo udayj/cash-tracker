@@ -1,0 +1,34 @@
+# Git
+.git/
+.gitignore
+
+# Build artifacts
+target/
+**/*.rs.bk
+
+# Environment and secrets
+.env
+.env.local
+.env.*
+
+# Documentation
+*.md
+README.md
+
+# CI/CD
+.github/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
