@@ -5,7 +5,7 @@ use dotenvy::dotenv;
 use std::env;
 use std::sync::Arc;
 use teloxide::prelude::*;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{Mutex, mpsc};
 use tracing::error;
 
 pub struct ErrorAlertService {

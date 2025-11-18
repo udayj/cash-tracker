@@ -46,7 +46,6 @@ impl RequestFulfilment {
         request: &str,
         ctx: &SessionContext,
     ) -> Result<FulfilmentResult, RequestError> {
-
         let categories = self
             .database
             .get_categories(ctx.user_id)
@@ -117,7 +116,11 @@ impl RequestFulfilment {
                      - Description: {}\n\
                      - Category: {}\n\
                      - Date: {}",
-                    expense.id, expense.amount, expense.description, expense.category, expense.expense_date
+                    expense.id,
+                    expense.amount,
+                    expense.description,
+                    expense.category,
+                    expense.expense_date
                 )
             }
             RecordContext::CashTransaction(cash) => {

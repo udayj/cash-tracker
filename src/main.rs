@@ -3,8 +3,8 @@ use cash_tracker::communication::{ErrorAlertService, TelegramService};
 use cash_tracker::configuration::Context;
 use cash_tracker::core::ServiceManager;
 use dotenvy::dotenv;
-use std::sync::Arc;
 use std::str::FromStr;
+use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc;
 use tracing::Level;
@@ -13,7 +13,9 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 #[tokio::main]
 async fn main() -> Result<(), AppError> {
     dotenv().ok();
-    let context = Context::new("config.json").await.map_err(|e| AppError::ConfigError(e.to_string()))?;
+    let context = Context::new("config.json")
+        .await
+        .map_err(|e| AppError::ConfigError(e.to_string()))?;
 
     let log_level = Level::from_str(&context.config.log_level).unwrap_or(Level::INFO);
     tracing_subscriber::registry()

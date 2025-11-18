@@ -1,5 +1,5 @@
-mod telegram;
 mod error_alert;
+mod telegram;
 
-pub use telegram::TelegramService;
 pub use error_alert::ErrorAlertService;
+pub use telegram::TelegramService;

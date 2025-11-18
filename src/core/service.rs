@@ -1,8 +1,8 @@
+use super::Error;
 use async_trait::async_trait;
-use tokio::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use super::Error;
+use tokio::sync::mpsc::{Receiver, Sender};
 
 #[async_trait]
 pub trait Service {
@@ -14,9 +14,6 @@ pub trait Service {
 #[async_trait]
 pub trait ServiceWithReceiver {
     type Context: Clone + Send;
-    async fn new(
-        context: Self::Context,
-        receiver: Option<Arc<Mutex<Receiver<String>>>>,
-    ) -> Self;
+    async fn new(context: Self::Context, receiver: Option<Arc<Mutex<Receiver<String>>>>) -> Self;
     async fn run(self) -> Result<(), Error>;
 }

@@ -1,6 +1,6 @@
-pub mod core;
-pub mod configuration;
 pub mod communication;
+pub mod configuration;
+pub mod core;
 pub mod database;
 pub mod request;
 
