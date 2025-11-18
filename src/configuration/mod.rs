@@ -18,16 +18,9 @@ pub enum ConfigError {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-
 pub struct Config {
     pub log_level: String,
     pub db_url: String,
-    pub telegram: TelegramConfig,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct TelegramConfig {
-    pub error_channel_id: i64,
 }
 
 #[derive(Clone)]

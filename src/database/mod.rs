@@ -116,7 +116,7 @@ impl DatabaseService {
     }
 
     // Modify expense fields
-    pub async fn modify_expense(&self, args: ModifyExpenseArgs) -> Result<(), DatabaseError> {
+    pub async fn modify_expense(&self, args: ModifyExpenseArgs, user_id: i64) -> Result<(), DatabaseError> {
         let mut set_clauses = Vec::new();
         let mut values: Vec<libsql::Value> = Vec::new();
 
@@ -142,18 +142,19 @@ impl DatabaseService {
         }
 
         let sql = format!(
-            "UPDATE expenses SET {} WHERE id = ?",
+            "UPDATE expenses SET {} WHERE id = ? AND user_id = ?",
             set_clauses.join(", ")
         );
         values.push(args.expense_id.into());
+        values.push(user_id.into());
 
         self.execute(&sql, libsql::params::Params::Positional(values))
             .await
     }
 
     // Delete expense
-    pub async fn delete_expense(&self, expense_id: i64) -> Result<(), DatabaseError> {
-        self.execute("DELETE FROM expenses WHERE id = ?", params![expense_id])
+    pub async fn delete_expense(&self, expense_id: i64, user_id: i64) -> Result<(), DatabaseError> {
+        self.execute("DELETE FROM expenses WHERE id = ? AND user_id = ?", params![expense_id, user_id])
             .await
     }
 

@@ -1,0 +1,38 @@
+# Rust
+/target/
+**/*.rs.bk
+*.pdb
+
+# Environment variables (sensitive)
+.env
+.env.*
+*.env
+
+# Configuration files (may contain sensitive data)
+config.json
+config.*.json
+
+# Logs
+*.log
+logs/
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS files
+Thumbs.db
+.DS_Store
+._*
+
+# Debug files
+debug/
+*.debug
+
+# Backup files
+*.bak
+*.backup

@@ -4,6 +4,10 @@ use std::time::Duration;
 use thiserror::Error;
 use tracing::{error, warn};
 
+const DEFAULT_REQUEST_TIMEOUT_SECS: u64 = 45;
+const DEFAULT_MAX_RETRIES: u32 = 3;
+const RETRY_BASE_DELAY_MS: u64 = 1000;
+
 #[derive(Debug, Error)]
 pub enum RetryError {
     #[error("Request failed after all retries: {0}")]
@@ -22,10 +26,10 @@ impl Default for RetryableClient {
     fn default() -> Self {
         Self {
             client: Client::builder()
-                .timeout(Duration::from_secs(45))
+                .timeout(Duration::from_secs(DEFAULT_REQUEST_TIMEOUT_SECS))
                 .build()
                 .unwrap(),
-            max_retries: 3,
+            max_retries: DEFAULT_MAX_RETRIES,
         }
     }
 }
@@ -76,7 +80,7 @@ impl RetryableClient {
             }
 
             if attempt < self.max_retries - 1 {
-                let delay = Duration::from_millis(1000 * (2_u64.pow(attempt + 1)));
+                let delay = Duration::from_millis(RETRY_BASE_DELAY_MS * (2_u64.pow(attempt + 1)));
                 warn!(
                     "Request attempt {} failed, retrying in {:?}",
                     attempt + 1,

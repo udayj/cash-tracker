@@ -11,6 +11,8 @@ use teloxide::prelude::*;
 use thiserror::Error;
 use tokio::sync::mpsc;
 
+const MAX_MESSAGE_LENGTH: usize = 2000;
+
 #[derive(Debug, Error)]
 pub enum TelegramServiceError {
     #[error("Initialization Error")]
@@ -116,6 +118,26 @@ impl TelegramService {
             replied_record,
         };
         if let Some(request) = msg.text() {
+            // Validate input
+            let request = request.trim();
+
+            if request.is_empty() {
+                let _ = bot
+                    .send_message(chat_id, "Please provide a valid message.")
+                    .await;
+                return Ok(());
+            }
+
+            if request.len() > MAX_MESSAGE_LENGTH {
+                let _ = bot
+                    .send_message(
+                        chat_id,
+                        format!("Message too long. Please limit to {} characters.", MAX_MESSAGE_LENGTH),
+                    )
+                    .await;
+                return Ok(());
+            }
+
             match request_fulfilment
                 .fulfil_request(request, &session_context)
                 .await
@@ -158,16 +180,6 @@ impl TelegramService {
             }
         }
 
-        /*let chat_id = msg.chat.id;
-        let telegram_id = chat_id.0.to_string();
-        println!("chat id:{}", chat_id);
-        println!("telegram_id:{}", telegram_id);
-        println!("message id:{}", msg.id);
-        if let Some(message) = msg.reply_to_message() {
-            println!("earlier message id:{}", message.id);
-            println!("chat id:{}", message.chat.id);
-            println!("telegram_id:{}", message.chat.id.0.to_string());
-        }*/
         Ok(())
     }
 }

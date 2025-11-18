@@ -18,11 +18,14 @@ pub struct ErrorAlertService {
 impl ServiceWithReceiver for ErrorAlertService {
     type Context = Context;
 
-    async fn new(context: Context, receiver: Option<Arc<Mutex<mpsc::Receiver<String>>>>) -> Self {
+    async fn new(_context: Context, receiver: Option<Arc<Mutex<mpsc::Receiver<String>>>>) -> Self {
         dotenv().ok();
         let error_bot_token = env::var("ERROR_BOT_TOKEN").expect("ERROR_BOT_TOKEN not found");
         let bot = Bot::new(error_bot_token);
-        let channel_id = context.config.telegram.error_channel_id;
+        let channel_id = env::var("ERROR_CHANNEL_ID")
+            .expect("ERROR_CHANNEL_ID not found")
+            .parse::<i64>()
+            .expect("ERROR_CHANNEL_ID must be a valid integer");
 
         Self {
             bot,

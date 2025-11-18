@@ -6,6 +6,7 @@ use std::env;
 use std::fs;
 use std::sync::OnceLock;
 use thiserror::Error;
+use tracing::debug;
 
 #[derive(Error, Debug)]
 pub enum LLMError {
@@ -75,7 +76,7 @@ impl LLMOrchestrator {
     pub async fn try_parse(&self, request: &str) -> Result<LLMResponse, LLMError> {
         let model_name = "openai/gpt-oss-20b";
         let tools = get_tools();
-        println!("Request:{}", request);
+        debug!("LLM request: {}", request);
         let response = self
             .client
             .execute_with_retry(
@@ -108,7 +109,7 @@ impl LLMOrchestrator {
             .json()
             .await
             .map_err(|e| LLMError::ResponseParseError(e.to_string()))?;
-        println!("{}", serde_json::to_string_pretty(&body).unwrap());
+        debug!("LLM response: {}", serde_json::to_string_pretty(&body).unwrap_or_default());
         let message = body["choices"][0]["message"].clone();
 
         let tool_calls = message["tool_calls"]
@@ -120,7 +121,7 @@ impl LLMOrchestrator {
             })
             .unwrap_or_default();
 
-        println!("tool calls:{:#?}", tool_calls);
+        debug!("Parsed tool calls: {:#?}", tool_calls);
         Ok(LLMResponse { tool_calls })
     }
 }
