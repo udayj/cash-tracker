@@ -76,12 +76,33 @@ impl RequestFulfilment {
         ctx: &SessionContext,
     ) -> Result<FulfilmentResult, RequestError> {
 
-        let full_request = if let Some(ref record_ctx) = ctx.replied_record {
-            let context_str = Self::format_record_context(record_ctx);
-            format!("{}\n\nUser request: {}", context_str, request)
-        } else {
-            request.to_string()
+        let categories = self
+            .database
+            .get_categories(ctx.user_id)
+            .await
+            .map_err(|e| RequestError::DatabaseError(e.to_string()))?;
+
+        let full_request = {
+            let mut parts = Vec::new();
+
+            // Add category context if categories exist
+            if !categories.is_empty() {
+                parts.push(format!(
+                    "AVAILABLE CATEGORIES: {}\nPrefer using existing categories when appropriate. Only create new categories if the expense doesn't fit any existing one.",
+                    categories.join(", ")
+                ));
+            }
+
+            // Add replied record context if exists
+            if let Some(ref record_ctx) = ctx.replied_record {
+                parts.push(Self::format_record_context(record_ctx));
+            }
+
+            // Add user request
+            parts.push(format!("User request: {}", request));
+            parts.join("\n\n")
         };
+
         // Get LLM response with tool calls
         let llm_response = self.llm_service.try_parse(&full_request).await?;
 
@@ -118,25 +139,23 @@ impl RequestFulfilment {
     fn format_record_context(record: &RecordContext) -> String {
         match record {
             RecordContext::Expense(expense) => {
-                let amount_rupees = expense.amount as f64 / 100.0;
                 format!(
                     "CONTEXT: The user is replying about an existing expense:\n\
                      - Expense ID: {}\n\
-                     - Amount: ₹{:.2}\n\
+                     - Amount: ₹{}\n\
                      - Description: {}\n\
                      - Category: {}\n\
                      - Date: {}",
-                    expense.id, amount_rupees, expense.description, expense.category, expense.expense_date
+                    expense.id, expense.amount, expense.description, expense.category, expense.expense_date
                 )
             }
             RecordContext::CashTransaction(cash) => {
-                let amount_rupees = cash.amount as f64 / 100.0;
                 format!(
                     "CONTEXT: The user is replying about an existing cash transaction:\n\
                      - Transaction ID: {}\n\
-                     - Amount: ₹{:.2}\n\
+                     - Amount: ₹{}\n\
                      - Date: {}",
-                    cash.id, amount_rupees, cash.transaction_date
+                    cash.id, cash.amount, cash.transaction_date
                 )
             }
         }

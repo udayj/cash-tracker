@@ -190,7 +190,7 @@ impl LLMOrchestrator {
     pub async fn try_parse(&self, request: &str) -> Result<LLMResponse, LLMError> {
         let model_name = "openai/gpt-oss-20b";
         let tools = get_tools();
-
+        println!("Request:{}", request);
         let response = self
             .client
             .execute_with_retry(
