@@ -75,13 +75,36 @@ impl RequestFulfilment {
         request: &str,
         ctx: &SessionContext,
     ) -> Result<FulfilmentResult, RequestError> {
+        // Fetch user's existing categories
+        let categories = self
+            .database
+            .get_categories(ctx.user_id)
+            .await
+            .map_err(|e| RequestError::DatabaseError(e.to_string()))?;
 
-        let full_request = if let Some(ref record_ctx) = ctx.replied_record {
-            let context_str = Self::format_record_context(record_ctx);
-            format!("{}\n\nUser request: {}", context_str, request)
-        } else {
-            request.to_string()
+        // Build request with context
+        let full_request = {
+            let mut parts = Vec::new();
+
+            // Add category context if categories exist
+            if !categories.is_empty() {
+                parts.push(format!(
+                    "AVAILABLE CATEGORIES: {}\nPrefer using existing categories when appropriate. Only create new categories if the expense doesn't fit any existing one.",
+                    categories.join(", ")
+                ));
+            }
+
+            // Add replied record context if exists
+            if let Some(ref record_ctx) = ctx.replied_record {
+                parts.push(Self::format_record_context(record_ctx));
+            }
+
+            // Add user request
+            parts.push(format!("User request: {}", request));
+
+            parts.join("\n\n")
         };
+
         // Get LLM response with tool calls
         let llm_response = self.llm_service.try_parse(&full_request).await?;
 
