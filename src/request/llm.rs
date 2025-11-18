@@ -76,15 +76,17 @@ fn get_tools() -> Value {
             "type": "function",
             "function": {
                 "name": "modify_expense",
-                "description": "Modify a field of an existing expense",
+                "description": "Modify one or more fields of an existing expense atomically. You can update amount, description, category, or date. When amount changes, update description accordingly (e.g., '10 fruits' to '20 fruits').",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "expense_id": {"type": "integer", "description": "ID of the expense to modify"},
-                        "field": {"type": "string", "enum": ["amount", "description", "category", "date"], "description": "Field to modify"},
-                        "new_value": {"type": "string", "description": "New value for the field"}
+                        "amount": {"type": "integer", "description": "New amount in rupees (optional)"},
+                        "description": {"type": "string", "description": "New description (optional)"},
+                        "category": {"type": "string", "description": "New category (optional)"},
+                        "date": {"type": "string", "description": "New date in dd/mm/yyyy format (optional)"}
                     },
-                    "required": ["expense_id", "field", "new_value"]
+                    "required": ["expense_id"]
                 }
             }
         },
