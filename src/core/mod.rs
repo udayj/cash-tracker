@@ -1,11 +1,13 @@
 use thiserror::Error;
+mod cache;
 mod http;
 mod service;
 mod service_manager;
 
+pub use cache::ExpirableCache;
+pub use http::RetryableClient;
 pub use service::{Service, ServiceWithReceiver};
 pub use service_manager::ServiceManager;
-pub use http::RetryableClient;
 
 #[derive(Error, Debug)]
 #[error("{0}")]

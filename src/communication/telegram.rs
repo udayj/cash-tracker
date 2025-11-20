@@ -157,17 +157,6 @@ impl TelegramService {
                 }
             }
         }
-
-        /*let chat_id = msg.chat.id;
-        let telegram_id = chat_id.0.to_string();
-        println!("chat id:{}", chat_id);
-        println!("telegram_id:{}", telegram_id);
-        println!("message id:{}", msg.id);
-        if let Some(message) = msg.reply_to_message() {
-            println!("earlier message id:{}", message.id);
-            println!("chat id:{}", message.chat.id);
-            println!("telegram_id:{}", message.chat.id.0.to_string());
-        }*/
         Ok(())
     }
 }

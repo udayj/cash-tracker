@@ -1,10 +1,13 @@
 use libsql::{Builder, Connection, params, params::IntoParams};
-use std::env;
+use std::{env, time::Duration};
 use thiserror::Error;
 
-use crate::request::{
-    types::SessionContext,
-    types::args::{AddCashArgs, AddExpenseArgs, ModifyExpenseArgs},
+use crate::{
+    core::ExpirableCache,
+    request::types::{
+        SessionContext,
+        args::{AddCashArgs, AddExpenseArgs, ModifyExpenseArgs},
+    },
 };
 mod types;
 
@@ -22,8 +25,10 @@ pub enum DatabaseError {
     QueryError(String),
 }
 
+const DEFAULT_CATEGORY_CACHE_TTL: u64 = 86400 * 30;
 pub struct DatabaseService {
     pub conn: Connection,
+    pub category_cache: ExpirableCache<i64, Vec<String>>,
 }
 
 impl DatabaseService {
@@ -38,7 +43,12 @@ impl DatabaseService {
         let conn = db
             .connect()
             .map_err(|e| DatabaseError::ConnectionError(e.to_string()))?;
-        Ok(Self { conn })
+        let category_cache =
+            ExpirableCache::new(10, Duration::from_secs(DEFAULT_CATEGORY_CACHE_TTL));
+        Ok(Self {
+            conn,
+            category_cache,
+        })
     }
 }
 
@@ -69,6 +79,15 @@ impl DatabaseService {
         args: &AddExpenseArgs,
         session_context: &SessionContext,
     ) -> Result<i64, DatabaseError> {
+        // Update cache if current category is a new category
+        if let Some(mut cache) = self.category_cache.get(&session_context.user_id)
+            && !cache.contains(&args.category)
+        {
+            cache.push(args.category.clone());
+            self.category_cache.remove(&session_context.user_id);
+            self.category_cache.insert(session_context.user_id, cache);
+        }
+
         self.execute_returning_id(
             "INSERT INTO expenses (user_id, amount, description, category, expense_date, user_message_id, created_at)
              VALUES (?, ?, ?, ?, ?, ?, datetime('now'))", 
@@ -116,7 +135,21 @@ impl DatabaseService {
     }
 
     // Modify expense fields
-    pub async fn modify_expense(&self, args: ModifyExpenseArgs) -> Result<(), DatabaseError> {
+    pub async fn modify_expense(
+        &self,
+        args: ModifyExpenseArgs,
+        ctx: &SessionContext,
+    ) -> Result<(), DatabaseError> {
+        // Update cache if there is a category and it is a new category
+        if let Some(mut cache) = self.category_cache.get(&ctx.user_id)
+            && let Some(category) = &args.category
+            && !cache.contains(category)
+        {
+            cache.push(category.clone());
+            self.category_cache.remove(&ctx.user_id);
+            self.category_cache.insert(ctx.user_id, cache);
+        }
+
         let mut set_clauses = Vec::new();
         let mut values: Vec<libsql::Value> = Vec::new();
 
@@ -142,19 +175,26 @@ impl DatabaseService {
         }
 
         let sql = format!(
-            "UPDATE expenses SET {} WHERE id = ?",
+            "UPDATE expenses SET {} WHERE id = ? AND user_id = ?",
             set_clauses.join(", ")
         );
         values.push(args.expense_id.into());
-
+        values.push(ctx.user_id.into());
         self.execute(&sql, libsql::params::Params::Positional(values))
             .await
     }
 
     // Delete expense
-    pub async fn delete_expense(&self, expense_id: i64) -> Result<(), DatabaseError> {
-        self.execute("DELETE FROM expenses WHERE id = ?", params![expense_id])
-            .await
+    pub async fn delete_expense(
+        &self,
+        expense_id: i64,
+        ctx: &SessionContext,
+    ) -> Result<(), DatabaseError> {
+        self.execute(
+            "DELETE FROM expenses WHERE id = ? AND user_id = ?",
+            params![expense_id, ctx.user_id],
+        )
+        .await
     }
 
     // Get balance (cash added - expenses)
@@ -261,6 +301,11 @@ impl DatabaseService {
 
     // Get all categories for user
     pub async fn get_categories(&self, user_id: i64) -> Result<Vec<String>, DatabaseError> {
+        // If categories for the user are available in the cache, use it
+        if let Some(cache) = self.category_cache.get(&user_id) {
+            return Ok(cache);
+        }
+
         let stmt = self
             .conn
             .prepare("SELECT DISTINCT category FROM expenses WHERE user_id = ? ORDER BY category")
@@ -283,6 +328,8 @@ impl DatabaseService {
                 .map_err(|e| DatabaseError::QueryError(e.to_string()))?;
             categories.push(category);
         }
+        // Update cache
+        self.category_cache.insert(user_id, categories.clone());
         Ok(categories)
     }
 

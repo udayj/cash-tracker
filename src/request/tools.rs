@@ -50,13 +50,13 @@ impl ToolExecutor {
             "modify_expense" => {
                 let args: ModifyExpenseArgs = serde_json::from_str(arguments)
                     .map_err(|e| ToolError::ArgumentParseError(e.to_string()))?;
-                self.modify_expense(args).await?;
+                self.modify_expense(args, ctx).await?;
                 Ok((None, "✅ Expense modified successfully".to_string()))
             }
             "delete_expense" => {
                 let args: DeleteExpenseArgs = serde_json::from_str(arguments)
                     .map_err(|e| ToolError::ArgumentParseError(e.to_string()))?;
-                self.delete_expense(args).await?;
+                self.delete_expense(args, ctx).await?;
                 Ok((None, "✅ Expense deleted successfully".to_string()))
             }
             "get_balance" => Ok((None, self.get_balance(ctx).await?)),
@@ -93,18 +93,26 @@ impl ToolExecutor {
             .map_err(|e| ToolError::DatabaseError(e.to_string()))
     }
 
-    async fn modify_expense(&self, args: ModifyExpenseArgs) -> Result<(), ToolError> {
+    async fn modify_expense(
+        &self,
+        args: ModifyExpenseArgs,
+        ctx: &SessionContext,
+    ) -> Result<(), ToolError> {
         self.database
-            .modify_expense(args)
+            .modify_expense(args, ctx)
             .await
             .map_err(|e| ToolError::DatabaseError(e.to_string()))?;
 
         Ok(())
     }
 
-    async fn delete_expense(&self, args: DeleteExpenseArgs) -> Result<(), ToolError> {
+    async fn delete_expense(
+        &self,
+        args: DeleteExpenseArgs,
+        ctx: &SessionContext,
+    ) -> Result<(), ToolError> {
         self.database
-            .delete_expense(args.expense_id)
+            .delete_expense(args.expense_id, ctx)
             .await
             .map_err(|e| ToolError::DatabaseError(e.to_string()))?;
 

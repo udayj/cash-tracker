@@ -1,7 +1,4 @@
 {
     "log_level" : "info",
-    "telegram" : {
-        "error_channel_id": 2050924196
-    },
     "db_url": "libsql://test-db-udayj.aws-ap-south-1.turso.io"
 }

@@ -12,6 +12,10 @@ pub enum RetryError {
     NonRetryable(String),
 }
 
+const DEFAULT_REQUEST_TIMEOUT_SECS: u64 = 45;
+const DEFAULT_MAX_RETRIES: u32 = 3;
+const DEFAULT_BASE_DELAY_SEC: u64 = 2;
+
 #[derive(Clone, Debug)]
 pub struct RetryableClient {
     client: Client,
@@ -22,13 +26,14 @@ impl Default for RetryableClient {
     fn default() -> Self {
         Self {
             client: Client::builder()
-                .timeout(Duration::from_secs(45))
+                .timeout(Duration::from_secs(DEFAULT_REQUEST_TIMEOUT_SECS))
                 .build()
                 .unwrap(),
-            max_retries: 3,
+            max_retries: DEFAULT_MAX_RETRIES,
         }
     }
 }
+
 impl RetryableClient {
     pub fn new() -> Self {
         RetryableClient::default()
@@ -76,7 +81,7 @@ impl RetryableClient {
             }
 
             if attempt < self.max_retries - 1 {
-                let delay = Duration::from_millis(1000 * (2_u64.pow(attempt + 1)));
+                let delay = Duration::from_secs(DEFAULT_BASE_DELAY_SEC.pow(attempt + 1));
                 warn!(
                     "Request attempt {} failed, retrying in {:?}",
                     attempt + 1,
