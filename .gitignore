@@ -1,0 +1,5 @@
+/target
+.env
+CLAUDE.md
+CODEBASE.md
+.env.prod
