@@ -1,0 +1,38 @@
+# Build artifacts
+target/
+*.exe
+*.pdb
+
+# Git
+.git/
+.gitignore
+.github/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Documentation
+*.md
+!README.md
+LICENSE
+
+# CI/CD
+.github/
+
+# Docker files
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Misc
+.DS_Store
+*.log

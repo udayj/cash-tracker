@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  cash-tracker:
+    image: ghcr.io/udayj/cash-tracker:latest
+    container_name: cash-tracker
+    platform: linux/amd64
+    restart: unless-stopped
+    env_file:
+      - .env
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  cash-tracker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - linux/amd64
+    platform: linux/amd64
+    container_name: cash-tracker
+    restart: unless-stopped
+    env_file:
+      - .env
+    # No ports needed - Telegram bot uses polling
+    volumes:
+      # Mount config.json if you want to modify it without rebuilding
+      - ./config.json:/app/config.json:ro
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
