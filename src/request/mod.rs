@@ -6,6 +6,7 @@ use thiserror::Error;
 mod llm;
 mod tools;
 pub mod types;
+mod visualization;
 
 use types::*;
 
@@ -80,6 +81,7 @@ impl RequestFulfilment {
             return Ok(FulfilmentResult {
                 response: "No action taken".to_string(),
                 finalize: None,
+                image: None,
             });
         }
 
@@ -87,7 +89,7 @@ impl RequestFulfilment {
         let tool_executor = ToolExecutor::new(self.database.clone());
         let tool_call = &llm_response.tool_calls[0]; // Use first tool call
 
-        let (record_id, response) = tool_executor
+        let (record_id, response, image) = tool_executor
             .execute_tool(&tool_call.function.name, &tool_call.function.arguments, ctx)
             .await?;
         // Generate response message based on tool
@@ -103,7 +105,11 @@ impl RequestFulfilment {
             _ => None,
         };
 
-        Ok(FulfilmentResult { response, finalize })
+        Ok(FulfilmentResult {
+            response,
+            finalize,
+            image,
+        })
     }
 
     fn format_record_context(record: &RecordContext) -> String {

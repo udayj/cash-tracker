@@ -14,7 +14,6 @@ services:
       - .env
     # No ports needed - Telegram bot uses polling
     volumes:
-      # Mount config.json if you want to modify it without rebuilding
       - ./config.json:/app/config.json:ro
     logging:
       driver: "json-file"

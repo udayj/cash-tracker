@@ -8,6 +8,7 @@ use async_trait::async_trait;
 use std::env;
 use std::sync::Arc;
 use teloxide::prelude::*;
+use teloxide::types::InputFile;
 use thiserror::Error;
 use tokio::sync::mpsc;
 
@@ -142,12 +143,26 @@ impl TelegramService {
                 .await
             {
                 Ok(result) => {
-                    // Send the response message
-                    match bot.send_message(chat_id, result.response).await {
-                        Ok(sent_msg) => {
+                    // Send response with or without image
+                    let sent_msg_result = if let Some(image_data) = result.image {
+                        // Send photo with caption
+                        let photo = InputFile::memory(image_data);
+                        bot.send_photo(chat_id, photo)
+                            .caption(result.response)
+                            .await
+                            .map(|msg| msg.id)
+                    } else {
+                        // Send text message
+                        bot.send_message(chat_id, result.response)
+                            .await
+                            .map(|msg| msg.id)
+                    };
+
+                    match sent_msg_result {
+                        Ok(sent_msg_id) => {
                             // If there's a finalize action, execute it with the bot message ID
                             if let Some(finalize_action) = result.finalize {
-                                let bot_msg_id = sent_msg.id.0 as i64;
+                                let bot_msg_id = sent_msg_id.0 as i64;
                                 if let Err(e) = request_fulfilment
                                     .finalize(finalize_action, bot_msg_id)
                                     .await

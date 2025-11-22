@@ -16,6 +16,7 @@ COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
 COPY src ./src
 COPY assets ./assets
 COPY config.json ./config.json
+COPY config.prod.json ./config.prod.json
 
 # Build release binary
 RUN cargo build --release
@@ -39,6 +40,7 @@ COPY --from=builder /app/target/release/cash-tracker /app/cash-tracker
 
 # Copy config and assets
 COPY --from=builder /app/config.json /app/config.json
+COPY --from=builder /app/config.prod.json /app/config.prod.json
 COPY --from=builder /app/assets /app/assets
 
 # Change ownership

@@ -1,7 +1,9 @@
 use super::types::args::*;
+use super::visualization;
 use crate::{database::DatabaseService, request::SessionContext};
 use std::sync::Arc;
 use thiserror::Error;
+use visualization::generate_pie_chart;
 
 #[derive(Error, Debug)]
 pub enum ToolError {
@@ -13,6 +15,9 @@ pub enum ToolError {
 
     #[error("Database error: {0}")]
     DatabaseError(String),
+
+    #[error("Visualization error: {0}")]
+    VisualizationError(#[from] visualization::VisualizationError),
 }
 
 pub struct ToolExecutor {
@@ -29,7 +34,7 @@ impl ToolExecutor {
         tool_name: &str,
         arguments: &str,
         ctx: &SessionContext,
-    ) -> Result<(Option<i64>, String), ToolError> {
+    ) -> Result<(Option<i64>, String, Option<Vec<u8>>), ToolError> {
         match tool_name {
             "add_cash" => {
                 let args: AddCashArgs = serde_json::from_str(arguments)
@@ -37,6 +42,7 @@ impl ToolExecutor {
                 Ok((
                     Some(self.add_cash(&args, ctx).await?),
                     format!("✅ Added ₹{} to cash balance", args.amount),
+                    None,
                 ))
             }
             "add_expense" => {
@@ -45,32 +51,33 @@ impl ToolExecutor {
                 Ok((
                     Some(self.add_expense(&args, ctx).await?),
                     format!("✅ Added ₹{} under {}", args.amount, args.category),
+                    None,
                 ))
             }
             "modify_expense" => {
                 let args: ModifyExpenseArgs = serde_json::from_str(arguments)
                     .map_err(|e| ToolError::ArgumentParseError(e.to_string()))?;
                 self.modify_expense(args, ctx).await?;
-                Ok((None, "✅ Expense modified successfully".to_string()))
+                Ok((None, "✅ Expense modified successfully".to_string(), None))
             }
             "delete_expense" => {
                 let args: DeleteExpenseArgs = serde_json::from_str(arguments)
                     .map_err(|e| ToolError::ArgumentParseError(e.to_string()))?;
                 self.delete_expense(args, ctx).await?;
-                Ok((None, "✅ Expense deleted successfully".to_string()))
+                Ok((None, "✅ Expense deleted successfully".to_string(), None))
             }
-            "get_balance" => Ok((None, self.get_balance(ctx).await?)),
+            "get_balance" => Ok((None, self.get_balance(ctx).await?, None)),
             "get_expense_breakdown" => {
                 let args: GetExpenseBreakdownArgs = serde_json::from_str(arguments)
                     .map_err(|e| ToolError::ArgumentParseError(e.to_string()))?;
-                Ok((None, self.get_expense_breakdown(args, ctx).await?))
+                self.get_expense_breakdown(args, ctx).await
             }
             "get_category_expenses" => {
                 let args: GetCategoryExpensesArgs = serde_json::from_str(arguments)
                     .map_err(|e| ToolError::ArgumentParseError(e.to_string()))?;
-                Ok((None, self.get_category_expenses(args, ctx).await?))
+                Ok((None, self.get_category_expenses(args, ctx).await?, None))
             }
-            "get_categories" => Ok((None, self.get_categories(ctx).await?)),
+            "get_categories" => Ok((None, self.get_categories(ctx).await?, None)),
             _ => Err(ToolError::UnknownTool(tool_name.to_string())),
         }
     }
@@ -132,23 +139,32 @@ impl ToolExecutor {
         &self,
         args: GetExpenseBreakdownArgs,
         ctx: &SessionContext,
-    ) -> Result<String, ToolError> {
+    ) -> Result<(Option<i64>, String, Option<Vec<u8>>), ToolError> {
         let breakdown = self
             .database
             .get_expense_breakdown(ctx.user_id, &args.start_date, &args.end_date)
             .await
             .map_err(|e| ToolError::DatabaseError(e.to_string()))?;
-        let mut summary: String = "".to_string();
-        for category_expense in breakdown {
-            summary.push_str(
-                format!(
-                    "{} - Rs.{}\n",
-                    category_expense.category, category_expense.total
-                )
-                .as_str(),
-            );
+
+        if breakdown.is_empty() {
+            return Ok((None, "No expenses found for this period".to_string(), None));
         }
-        Ok(summary)
+
+        let total: i64 = breakdown.iter().map(|s| s.total).sum();
+        let mut summary = String::new();
+
+        for category_expense in breakdown.iter() {
+            summary.push_str(&format!(
+                "{} - Rs.{}\n",
+                category_expense.category, category_expense.total
+            ));
+        }
+        summary.push_str(&format!("\nTotal: Rs.{}", total));
+
+        // Generate pie chart with legend
+        let chart_data = generate_pie_chart(&breakdown).ok();
+
+        Ok((None, summary, chart_data))
     }
 
     async fn get_category_expenses(
