@@ -5,6 +5,7 @@ FROM rust:1.89.0-slim AS builder
 RUN apt-get update && apt-get install -y \
     pkg-config \
     libssl-dev \
+    libfontconfig1-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -28,6 +29,7 @@ FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     libssl3 \
+    libfontconfig1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
