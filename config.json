@@ -1,4 +1,4 @@
 {
     "log_level" : "info",
-    "db_url": "libsql://test-db-udayj.aws-ap-south-1.turso.io"
+    "db_url": "libsql://dev-db-udayj.aws-ap-south-1.turso.io"
 }

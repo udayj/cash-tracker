@@ -15,6 +15,7 @@ pub struct FinalizeAction {
 pub struct FulfilmentResult {
     pub response: String,
     pub finalize: Option<FinalizeAction>,
+    pub image: Option<Vec<u8>>,
 }
 
 #[derive(Debug, Clone)]
