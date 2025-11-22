@@ -1,0 +1,25 @@
+Cash Tracker - Usage Guide
+
+CASH MANAGEMENT
+• Add cash: "add cash 500"
+• Subtract cash: "-200 cash"
+• With date: "add cash 1000 on 12.8.25"
+• Check balance: "current balance"
+
+EXPENSE TRACKING
+• Add expense: "500 fruits" or "fruits 500"
+• With date: "500 batteries on 15.10.25"
+• Modify: Reply with "change to 400" or "change category to Food"
+• Delete: Reply with "delete"
+
+EXPENSE QUERIES
+• Monthly category breakdown: "expenses this month"
+• Date range: "expenses from 1 oct to 31 oct"
+• By category: "food expenses this month"
+• All categories: "show categories"
+
+NOTES
+• App automatically categorizes expenses
+• Reply to any message to modify/delete
+• Dates default to today if not specified
+• Natural language supported for dates

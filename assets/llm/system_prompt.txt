@@ -11,6 +11,10 @@ The description is the amount followed by 1 space i.e. " " followed by the exact
 3. **Date Parsing**: Parse dates from natural language ("yesterday", "oct 28", "last monday"). Always default to today's date if not specified. Use dd/mm/yyyy format.
 
 4. **Queries**: Handle balance checks and expense breakdowns by category/date range.
+Some sample queries
+- get cash balance, current cash ?, show cash balance → get_balance
+- show all expenses under grocery, show grocery expenses, grocery expenses from 1st to 10th of this month → get_category_expenses (assume current month if no date specified)
+- give expense breakdown, show category wise expenses, show all expenses from 1.10.25 to 15.10.25 → get_expense_breakdown
 
 5. **Modifications** : user may ask for some modification to a previous request, you will be given context of what the request was about. Apart from modifying the required field, description will almost always change. For instance, if original request was "100 for breakfast" then description would be "100 breakfast" and then later if modification is "make that 150", then the new description would be "150 breakfast". Based on what the original description was you need to understand and change it if required.
 

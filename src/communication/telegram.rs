@@ -69,6 +69,10 @@ impl Service for TelegramService {
 }
 
 impl TelegramService {
+    fn get_help_text() -> Result<String, std::io::Error> {
+        std::fs::read_to_string("assets/help.txt")
+    }
+
     async fn handle_message(
         bot: Bot,
         msg: Message,
@@ -78,6 +82,23 @@ impl TelegramService {
     ) -> ResponseResult<()> {
         let chat_id = msg.chat.id;
         let user_id = chat_id.0;
+
+        // Handle /help command
+        if let Some(text) = msg.text() {
+            if text == "/help" {
+                match Self::get_help_text() {
+                    Ok(help_text) => {
+                        let _ = bot.send_message(chat_id, help_text).await;
+                        return Ok(());
+                    }
+                    Err(e) => {
+                        let _ = error_channel
+                            .send(format!("Failed to read help file: {}", e))
+                            .await;
+                    }
+                }
+            }
+        }
         let replied_record = if let Some(reply_to) = msg.reply_to_message() {
             let replied_msg_id = reply_to.id.0 as i64;
 
