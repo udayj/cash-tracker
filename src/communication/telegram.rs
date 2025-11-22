@@ -84,18 +84,18 @@ impl TelegramService {
         let user_id = chat_id.0;
 
         // Handle /help command
-        if let Some(text) = msg.text() {
-            if text == "/help" {
-                match Self::get_help_text() {
-                    Ok(help_text) => {
-                        let _ = bot.send_message(chat_id, help_text).await;
-                        return Ok(());
-                    }
-                    Err(e) => {
-                        let _ = error_channel
-                            .send(format!("Failed to read help file: {}", e))
-                            .await;
-                    }
+        if let Some(text) = msg.text()
+            && text == "/help"
+        {
+            match Self::get_help_text() {
+                Ok(help_text) => {
+                    let _ = bot.send_message(chat_id, help_text).await;
+                    return Ok(());
+                }
+                Err(e) => {
+                    let _ = error_channel
+                        .send(format!("Failed to read help file: {}", e))
+                        .await;
                 }
             }
         }
