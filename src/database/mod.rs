@@ -1,4 +1,4 @@
-use libsql::{Builder, Connection, params, params::IntoParams};
+use libsql::{Builder, Connection, Database, params, params::IntoParams};
 use std::{env, time::Duration};
 use thiserror::Error;
 
@@ -27,7 +27,7 @@ pub enum DatabaseError {
 
 const DEFAULT_CATEGORY_CACHE_TTL: u64 = 86400 * 30;
 pub struct DatabaseService {
-    pub conn: Connection,
+    pub db: Database,
     pub category_cache: ExpirableCache<i64, Vec<String>>,
 }
 
@@ -40,15 +40,18 @@ impl DatabaseService {
             .build()
             .await
             .map_err(|e| DatabaseError::DatabaseBuildError(e.to_string()))?;
-        let conn = db
-            .connect()
-            .map_err(|e| DatabaseError::ConnectionError(e.to_string()))?;
         let category_cache =
             ExpirableCache::new(10, Duration::from_secs(DEFAULT_CATEGORY_CACHE_TTL));
         Ok(Self {
-            conn,
+            db,
             category_cache,
         })
+    }
+
+    async fn get_connection(&self) -> Result<Connection, DatabaseError> {
+        self.db
+            .connect()
+            .map_err(|e| DatabaseError::ConnectionError(e.to_string()))
     }
 }
 
@@ -58,16 +61,16 @@ impl DatabaseService {
         sql: &str,
         params: impl IntoParams,
     ) -> Result<i64, DatabaseError> {
-        self.conn
-            .execute(sql, params)
+        let conn = self.get_connection().await?;
+        conn.execute(sql, params)
             .await
             .map_err(|e| DatabaseError::QueryError(e.to_string()))?;
-        Ok(self.conn.last_insert_rowid())
+        Ok(conn.last_insert_rowid())
     }
 
     async fn execute(&self, sql: &str, params: impl IntoParams) -> Result<(), DatabaseError> {
-        self.conn
-            .execute(sql, params)
+        let conn = self.get_connection().await?;
+        conn.execute(sql, params)
             .await
             .map_err(|e| DatabaseError::QueryError(e.to_string()))?;
 
@@ -199,8 +202,8 @@ impl DatabaseService {
 
     // Get balance (cash added - expenses)
     pub async fn get_balance(&self, user_id: i64) -> Result<i64, DatabaseError> {
-        let stmt = self
-            .conn
+        let conn = self.get_connection().await?;
+        let stmt = conn
             .prepare(
                 "SELECT
                     (SELECT COALESCE(SUM(amount), 0) FROM cash_transactions WHERE user_id = ?) -
@@ -236,8 +239,8 @@ impl DatabaseService {
         start_date: &str,
         end_date: &str,
     ) -> Result<Vec<CategorySummary>, DatabaseError> {
-        let stmt = self
-            .conn
+        let conn = self.get_connection().await?;
+        let stmt = conn
             .prepare(
                 "SELECT category, SUM(amount) as total
                  FROM expenses
@@ -272,8 +275,8 @@ impl DatabaseService {
         start_date: &str,
         end_date: &str,
     ) -> Result<Vec<Expense>, DatabaseError> {
-        let stmt = self
-            .conn
+        let conn = self.get_connection().await?;
+        let stmt = conn
             .prepare(
                 "SELECT id, user_id, amount, description, category, expense_date, user_message_id, bot_message_id, created_at
                  FROM expenses
@@ -306,8 +309,8 @@ impl DatabaseService {
             return Ok(cache);
         }
 
-        let stmt = self
-            .conn
+        let conn = self.get_connection().await?;
+        let stmt = conn
             .prepare("SELECT DISTINCT category FROM expenses WHERE user_id = ? ORDER BY category")
             .await
             .map_err(|e| DatabaseError::QueryError(e.to_string()))?;
@@ -339,8 +342,8 @@ impl DatabaseService {
         user_id: i64,
         message_id: i64,
     ) -> Result<Option<Expense>, DatabaseError> {
-        let stmt = self
-            .conn
+        let conn = self.get_connection().await?;
+        let stmt = conn
             .prepare(
                 "SELECT id, user_id, amount, description, category, expense_date, user_message_id, bot_message_id, created_at
                  FROM expenses
@@ -371,8 +374,8 @@ impl DatabaseService {
         user_id: i64,
         message_id: i64,
     ) -> Result<Option<CashTransaction>, DatabaseError> {
-        let stmt = self
-            .conn
+        let conn = self.get_connection().await?;
+        let stmt = conn
             .prepare(
                 "SELECT id, user_id, amount, transaction_date, user_message_id, bot_message_id, created_at
                  FROM cash_transactions
