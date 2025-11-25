@@ -42,10 +42,7 @@ impl DatabaseService {
             .map_err(|e| DatabaseError::DatabaseBuildError(e.to_string()))?;
         let category_cache =
             ExpirableCache::new(10, Duration::from_secs(DEFAULT_CATEGORY_CACHE_TTL));
-        Ok(Self {
-            db,
-            category_cache,
-        })
+        Ok(Self { db, category_cache })
     }
 
     async fn get_connection(&self) -> Result<Connection, DatabaseError> {
