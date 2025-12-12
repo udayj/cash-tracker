@@ -254,7 +254,9 @@ impl DatabaseService {
             .map_err(|e| DatabaseError::QueryError(e.to_string()))?;
 
         let mut rows = stmt
-            .query(params![user_id, start_date, start_date, start_date, end_date, end_date, end_date])
+            .query(params![
+                user_id, start_date, start_date, start_date, end_date, end_date, end_date
+            ])
             .await
             .map_err(|e| DatabaseError::QueryError(e.to_string()))?;
 
@@ -294,7 +296,9 @@ impl DatabaseService {
             .map_err(|e| DatabaseError::QueryError(e.to_string()))?;
 
         let mut rows = stmt
-            .query(params![user_id, category, start_date, start_date, start_date, end_date, end_date, end_date])
+            .query(params![
+                user_id, category, start_date, start_date, start_date, end_date, end_date, end_date
+            ])
             .await
             .map_err(|e| DatabaseError::QueryError(e.to_string()))?;
 
