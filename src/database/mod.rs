@@ -241,7 +241,12 @@ impl DatabaseService {
             .prepare(
                 "SELECT category, SUM(amount) as total
                  FROM expenses
-                 WHERE user_id = ? AND expense_date BETWEEN ? AND ?
+                 WHERE user_id = ?
+                 AND substr(expense_date, 7, 4) || '-' || substr(expense_date, 4, 2) || '-' || substr(expense_date, 1, 2)
+                     BETWEEN
+                     substr(?, 7, 4) || '-' || substr(?, 4, 2) || '-' || substr(?, 1, 2)
+                     AND
+                     substr(?, 7, 4) || '-' || substr(?, 4, 2) || '-' || substr(?, 1, 2)
                  GROUP BY category
                  ORDER BY total DESC",
             )
@@ -249,7 +254,7 @@ impl DatabaseService {
             .map_err(|e| DatabaseError::QueryError(e.to_string()))?;
 
         let mut rows = stmt
-            .query(params![user_id, start_date, end_date])
+            .query(params![user_id, start_date, start_date, start_date, end_date, end_date, end_date])
             .await
             .map_err(|e| DatabaseError::QueryError(e.to_string()))?;
 
@@ -277,14 +282,19 @@ impl DatabaseService {
             .prepare(
                 "SELECT id, user_id, amount, description, category, expense_date, user_message_id, bot_message_id, created_at
                  FROM expenses
-                 WHERE user_id = ? AND category = ? AND expense_date BETWEEN ? AND ?
+                 WHERE user_id = ? AND category = ?
+                 AND substr(expense_date, 7, 4) || '-' || substr(expense_date, 4, 2) || '-' || substr(expense_date, 1, 2)
+                     BETWEEN
+                     substr(?, 7, 4) || '-' || substr(?, 4, 2) || '-' || substr(?, 1, 2)
+                     AND
+                     substr(?, 7, 4) || '-' || substr(?, 4, 2) || '-' || substr(?, 1, 2)
                  ORDER BY expense_date DESC",
             )
             .await
             .map_err(|e| DatabaseError::QueryError(e.to_string()))?;
 
         let mut rows = stmt
-            .query(params![user_id, category, start_date, end_date])
+            .query(params![user_id, category, start_date, start_date, start_date, end_date, end_date, end_date])
             .await
             .map_err(|e| DatabaseError::QueryError(e.to_string()))?;
 
