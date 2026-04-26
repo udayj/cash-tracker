@@ -42,6 +42,7 @@ impl RequestFulfilment {
         })
     }
 
+    // Main entry point for request fulfilment
     pub async fn fulfil_request(
         &self,
         request: &str,
@@ -53,6 +54,7 @@ impl RequestFulfilment {
             .await
             .map_err(|e| RequestError::DatabaseError(e.to_string()))?;
 
+        // Creates full request with additional context if necessary
         let full_request = {
             let mut parts = Vec::new();
 
@@ -89,16 +91,19 @@ impl RequestFulfilment {
         let tool_executor = ToolExecutor::new(self.database.clone());
         let tool_call = &llm_response.tool_calls[0]; // Use first tool call
 
-        let (record_id, response, image) = tool_executor
+        let tool_result = tool_executor
             .execute_tool(&tool_call.function.name, &tool_call.function.arguments, ctx)
             .await?;
-        // Generate response message based on tool
+        // We send this detail as an information to the caller (telegram service) which signals that it needs to
+        // take an additional step of saving the bot msg id in the db after sending the response to the user
+        // This allows user to modify, for instance, the category the llm proactively chooses during expense creation
+        // the user can simply reply to their own msg or the bot msg and make any necessary modification
         let finalize = match tool_call.function.name.as_str() {
-            "add_cash" => record_id.map(|id| FinalizeAction {
+            "add_cash" => tool_result.record_id.map(|id| FinalizeAction {
                 record_id: id,
                 action_type: ActionType::CashTransaction,
             }),
-            "add_expense" => record_id.map(|id| FinalizeAction {
+            "add_expense" => tool_result.record_id.map(|id| FinalizeAction {
                 record_id: id,
                 action_type: ActionType::Expense,
             }),
@@ -106,12 +111,13 @@ impl RequestFulfilment {
         };
 
         Ok(FulfilmentResult {
-            response,
+            response: tool_result.response,
             finalize,
-            image,
+            image: tool_result.image,
         })
     }
 
+    // Format context for sending to the llm
     fn format_record_context(record: &RecordContext) -> String {
         match record {
             RecordContext::Expense(expense) => {
@@ -141,6 +147,7 @@ impl RequestFulfilment {
         }
     }
 
+    // Called by the telegram service to store the bot msg id for an already recorded cash/expense transaction
     pub async fn finalize(
         &self,
         action: FinalizeAction,

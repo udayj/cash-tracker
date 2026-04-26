@@ -1,4 +1,4 @@
-use super::types::args::*;
+use super::types::{ToolResult, args::*};
 use super::visualization;
 use crate::{database::DatabaseService, request::SessionContext};
 use std::sync::Arc;
@@ -34,39 +34,51 @@ impl ToolExecutor {
         tool_name: &str,
         arguments: &str,
         ctx: &SessionContext,
-    ) -> Result<(Option<i64>, String, Option<Vec<u8>>), ToolError> {
+    ) -> Result<ToolResult, ToolError> {
         match tool_name {
             "add_cash" => {
                 let args: AddCashArgs = serde_json::from_str(arguments)
                     .map_err(|e| ToolError::ArgumentParseError(e.to_string()))?;
-                Ok((
-                    Some(self.add_cash(&args, ctx).await?),
-                    format!("✅ Added ₹{} to cash balance", args.amount),
-                    None,
-                ))
+                Ok(ToolResult {
+                    record_id: Some(self.add_cash(&args, ctx).await?),
+                    response: format!("✅ Added ₹{} to cash balance", args.amount),
+                    image: None,
+                })
             }
             "add_expense" => {
                 let args: AddExpenseArgs = serde_json::from_str(arguments)
                     .map_err(|e| ToolError::ArgumentParseError(e.to_string()))?;
-                Ok((
-                    Some(self.add_expense(&args, ctx).await?),
-                    format!("✅ Added ₹{} under {}", args.amount, args.category),
-                    None,
-                ))
+                Ok(ToolResult {
+                    record_id: Some(self.add_expense(&args, ctx).await?),
+                    response: format!("✅ Added ₹{} under {}", args.amount, args.category),
+                    image: None,
+                })
             }
             "modify_expense" => {
                 let args: ModifyExpenseArgs = serde_json::from_str(arguments)
                     .map_err(|e| ToolError::ArgumentParseError(e.to_string()))?;
                 self.modify_expense(args, ctx).await?;
-                Ok((None, "✅ Expense modified successfully".to_string(), None))
+                Ok(ToolResult {
+                    record_id: None,
+                    response: "✅ Expense modified successfully".to_string(),
+                    image: None,
+                })
             }
             "delete_expense" => {
                 let args: DeleteExpenseArgs = serde_json::from_str(arguments)
                     .map_err(|e| ToolError::ArgumentParseError(e.to_string()))?;
                 self.delete_expense(args, ctx).await?;
-                Ok((None, "✅ Expense deleted successfully".to_string(), None))
+                Ok(ToolResult {
+                    record_id: None,
+                    response: "✅ Expense deleted successfully".to_string(),
+                    image: None,
+                })
             }
-            "get_balance" => Ok((None, self.get_balance(ctx).await?, None)),
+            "get_balance" => Ok(ToolResult {
+                record_id: None,
+                response: self.get_balance(ctx).await?,
+                image: None,
+            }),
             "get_expense_breakdown" => {
                 let args: GetExpenseBreakdownArgs = serde_json::from_str(arguments)
                     .map_err(|e| ToolError::ArgumentParseError(e.to_string()))?;
@@ -75,9 +87,17 @@ impl ToolExecutor {
             "get_category_expenses" => {
                 let args: GetCategoryExpensesArgs = serde_json::from_str(arguments)
                     .map_err(|e| ToolError::ArgumentParseError(e.to_string()))?;
-                Ok((None, self.get_category_expenses(args, ctx).await?, None))
+                Ok(ToolResult {
+                    record_id: None,
+                    response: self.get_category_expenses(args, ctx).await?,
+                    image: None,
+                })
             }
-            "get_categories" => Ok((None, self.get_categories(ctx).await?, None)),
+            "get_categories" => Ok(ToolResult {
+                record_id: None,
+                response: self.get_categories(ctx).await?,
+                image: None,
+            }),
             _ => Err(ToolError::UnknownTool(tool_name.to_string())),
         }
     }
@@ -139,7 +159,7 @@ impl ToolExecutor {
         &self,
         args: GetExpenseBreakdownArgs,
         ctx: &SessionContext,
-    ) -> Result<(Option<i64>, String, Option<Vec<u8>>), ToolError> {
+    ) -> Result<ToolResult, ToolError> {
         let breakdown = self
             .database
             .get_expense_breakdown(ctx.user_id, &args.start_date, &args.end_date)
@@ -147,7 +167,11 @@ impl ToolExecutor {
             .map_err(|e| ToolError::DatabaseError(e.to_string()))?;
 
         if breakdown.is_empty() {
-            return Ok((None, "No expenses found for this period".to_string(), None));
+            return Ok(ToolResult {
+                record_id: None,
+                response: "No expenses found for this period".to_string(),
+                image: None,
+            });
         }
 
         let total: i64 = breakdown.iter().map(|s| s.total).sum();
@@ -161,10 +185,11 @@ impl ToolExecutor {
         }
         summary.push_str(&format!("\nTotal: Rs.{}", total));
 
-        // Generate pie chart with legend
-        let chart_data = generate_pie_chart(&breakdown).ok();
-
-        Ok((None, summary, chart_data))
+        Ok(ToolResult {
+            record_id: None,
+            response: summary,
+            image: generate_pie_chart(&breakdown).ok(),
+        })
     }
 
     async fn get_category_expenses(

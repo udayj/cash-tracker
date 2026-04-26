@@ -18,6 +18,12 @@ pub struct FulfilmentResult {
     pub image: Option<Vec<u8>>,
 }
 
+pub struct ToolResult {
+    pub record_id: Option<i64>,
+    pub response: String,
+    pub image: Option<Vec<u8>>,
+}
+
 #[derive(Debug, Clone)]
 pub enum RecordContext {
     Expense(Expense),
@@ -38,13 +44,13 @@ pub mod args {
     // Tool argument structs
     #[derive(Debug, Deserialize, Clone)]
     pub struct AddCashArgs {
-        pub amount: f64,
+        pub amount: i64,
         pub date: String,
     }
 
     #[derive(Debug, Deserialize, Clone)]
     pub struct AddExpenseArgs {
-        pub amount: f64,
+        pub amount: i64,
         pub description: String,
         pub category: String,
         pub date: String,

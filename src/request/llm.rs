@@ -52,17 +52,13 @@ pub struct LLMOrchestrator {
     api_key: String,
     client: RetryableClient,
     system_prompt: String,
+    model_name: String,
 }
 
 impl LLMOrchestrator {
-    pub async fn new(_context: &Context) -> Result<Self, LLMError> {
-        // Read API key from environment
+    pub async fn new(context: &Context) -> Result<Self, LLMError> {
         let api_key = env::var("GROQ_API_KEY").map_err(|_| LLMError::MissingApiKey)?;
-
-        // Initialize RetryableClient
         let client = RetryableClient::new();
-
-        // Read system prompt from file
         let system_prompt = fs::read_to_string("assets/llm/system_prompt.txt")
             .map_err(|e| LLMError::SystemPromptReadError(e.to_string()))?;
 
@@ -70,11 +66,12 @@ impl LLMOrchestrator {
             api_key,
             client,
             system_prompt,
+            model_name: context.config.model_name.clone(),
         })
     }
 
     pub async fn try_parse(&self, request: &str) -> Result<LLMResponse, LLMError> {
-        let model_name = "openai/gpt-oss-20b";
+        let model_name = &self.model_name;
         let tools = get_tools();
         info!("Request:{}", request);
         let response = self

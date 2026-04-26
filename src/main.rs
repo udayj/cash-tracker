@@ -24,7 +24,7 @@ async fn main() -> Result<(), AppError> {
         .with(tracing_subscriber::fmt::layer())
         .with(tracing_subscriber::EnvFilter::new(log_level.to_string()))
         .init();
-    info!("Starting Assistant Application");
+    info!("Starting Cash Tracker Application");
 
     let (error_sender, error_receiver) = mpsc::channel::<String>(100);
     let shared_error_receiver = Arc::new(Mutex::new(error_receiver));

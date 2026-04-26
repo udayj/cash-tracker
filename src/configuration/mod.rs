@@ -22,6 +22,8 @@ pub enum ConfigError {
 pub struct Config {
     pub log_level: String,
     pub db_url: String,
+    pub model_name: String,
+    pub admin_id: i64,
 }
 
 #[derive(Clone)]
