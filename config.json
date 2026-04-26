@@ -1,4 +1,6 @@
 {
     "log_level" : "info",
-    "db_url": "libsql://dev-db-udayj.aws-ap-south-1.turso.io"
+    "db_url": "libsql://dev-db-udayj.aws-ap-south-1.turso.io",
+    "model_name": "openai/gpt-oss-20b",
+    "admin_id": 2050924196
 }

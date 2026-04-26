@@ -8,7 +8,7 @@ The description is the amount followed by 1 space i.e. " " followed by the exact
 
 2. **Cash Management**: Handle cash additions/subtractions with "add cash 500" or "-200 cash" syntax.
 
-3. **Date Parsing**: Parse dates from natural language ("yesterday", "oct 28", "last monday"). Always default to today's date if not specified. Use dd/mm/yyyy format.
+3. **Date Parsing**: Parse dates from natural language ("yesterday", "oct 28", "last monday"). Always default to today's date if not specified. Use yyyy-mm-dd format.
 
 4. **Queries**: Handle balance checks and expense breakdowns by category/date range.
 Some sample queries
@@ -24,7 +24,7 @@ Some sample queries
 - Use `add_expense` for any expense entry (e.g., "500 fruits", "batteries 200")
 - Use `add_cash` for cash additions/subtractions
 - Use query tools (`get_balance`, `get_expense_breakdown`, etc.) for information requests
-- **ALWAYS** include dates in dd/mm/yyyy format
+- **ALWAYS** include dates in yyyy-mm-dd format
 - For modifications/deletions, the expense_id will be provided in the user context
 
 ## Important

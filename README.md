@@ -16,10 +16,9 @@ A minimalist personal expense tracking bot that uses Telegram as the interface a
 - Modify or delete by replying to any message: `change to 400`, `delete`, or `change category to Food`
 
 ### Expense Analysis
-- Time-based breakdowns: `expenses this month` or `expenses from 1 oct to 31 oct`
+- Time-based breakdowns: `expenses this month` or `expenses from 1 oct to 31 oct` — includes pie chart
 - Category-specific queries: `food expenses this month`
 - View all categories: `show categories`
-- Visual charts (pie and bar graphs) - TODO
 
 ## Architecture
 
@@ -28,13 +27,14 @@ A minimalist personal expense tracking bot that uses Telegram as the interface a
 - Telegram Bot API for messaging
 - LLM with function calling (Groq as inference provider)
 - Remote Turso database (libsql)
-- Chart generation for visualizations - TODO
+- Pie chart generation via plotters
 
 **Design:**
 - Message-based context tracking (no conversation state)
 - Immediate commits with easy corrections
 - Auto-categorization with user category caching
 - Natural language date parsing
+- Allowlist-based access control
 
 ## Setup
 
@@ -55,6 +55,38 @@ TURSO_AUTH_TOKEN=your_turso_token
 GROQ_API_KEY=your_groq_key
 TELEGRAM_ERROR_CHANNEL_ID=your_error_channel_id
 ```
+
+### Configuration
+
+The app reads `config.json` at startup (override with `CONFIG_FILE` env var):
+
+```json
+{
+    "log_level": "info",
+    "db_url": "libsql://your-db.turso.io",
+    "model_name": "openai/gpt-oss-20b",
+    "admin_id": 123456789
+}
+```
+
+`admin_id` is your Telegram user ID — message [@userinfobot](https://t.me/userinfobot) to find it. Use `config.prod.json` for production.
+
+### Database
+
+Create the following table in your Turso database (in addition to the `expenses` and `cash_transactions` tables):
+
+```sql
+CREATE TABLE allowlist (user_id INTEGER PRIMARY KEY, status TEXT NOT NULL DEFAULT 'pending');
+```
+
+### Access Control
+
+The bot uses an allowlist. By default no one has access until approved by the admin.
+
+- When an unknown user messages the bot, they are silently queued as `pending` and you receive a notification in your error channel with their user ID
+- From your Telegram account, send `/approve <user_id>` to the bot to grant access
+- Send `/suspend <user_id>` to revoke access
+- As admin, you bypass the allowlist entirely
 
 ### Local Development
 
@@ -89,7 +121,7 @@ cargo build --release
 ./target/release/cash-tracker
 ```
 
-Ensure all environment variables are properly configured in your production environment.
+Ensure all environment variables and `config.prod.json` are properly configured in your production environment.
 
 ## License
 
